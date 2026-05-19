@@ -1,0 +1,13 @@
+env: "dev"
+GIN_MODE: "release"
+
+http_server:
+  port: "8080"
+
+database:
+  host: "localhost"
+  port: "5430"
+  user: "root"
+  password: "F@tAfaT1!#2026"
+  name: "fatafati"
+  ssl_mode: "disable"
