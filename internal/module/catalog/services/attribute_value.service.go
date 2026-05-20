@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/chand-magar/gamenglam-server/internal/module/catelog/models"
-	"github.com/chand-magar/gamenglam-server/internal/module/catelog/repository"
+	"github.com/chand-magar/gamenglam-server/internal/module/catalog/models"
+	"github.com/chand-magar/gamenglam-server/internal/module/catalog/repository"
 )
 
 var (

@@ -1,4 +1,4 @@
-package user
+package catalog
 
 import (
 	"github.com/gin-gonic/gin"
@@ -11,35 +11,37 @@ import (
 )
 
 type Module struct {
-	UserHandler    *controllers.UserHandler
-	RoleHandler    *controllers.RoleHandler
-	SectionHandler *controllers.SectionHandler
-	PageHandler    *controllers.PageHandler
+	CategoryHandler    *controllers.CategoryHandler
+	ProductHandler    *controllers.ProductHandler
+	ProductVariantHandler *controllers.ProductVariantHandler
+	AttributeHandler    *controllers.AttributeHandler
+	AttributeValueHandler *controllers.AttributeValueHandler
+	VariantAttributeValueHandler *controllers.VariantAttributeValueHandler
 }
 
 func NewModule(db *pgxpool.Pool) *Module {
 
-	categoryRepo    := postgresrepo.NewCategoryRepository(db)
+	categoryRepo    := postgres.NewCategoryRepository(db)
 	categryService 	:= services.NewCategoryService(categoryRepo)
 	categoryHandler := controllers.NewCategoryHandler(categryService)
 
-	productRepo    := postgresrepo.NewProductRepository(db)
+	productRepo    := postgres.NewProductRepository(db)
 	productService := services.NewProductService(productRepo)
 	productHandler := controllers.NewProductHandler(productService)
 
-	productVariantRepo    := postgresrepo.NewProductVariantRepository(db)
+	productVariantRepo    := postgres.NewProductVariantRepository(db)
 	productVariantService := services.NewProductVariantService(productVariantRepo)
 	productVariantHandler := controllers.NewProductVariantHandler(productVariantService)
 
-	attributeRepo    := postgresrepo.NewAttributeRepository(db)
+	attributeRepo    := postgres.NewAttributeRepository(db)
 	attributervice := services.NewAttributeService(attributeRepo)
 	attributeHandler := controllers.NewAttributeHandler(attributervice)
 
-	attributeValueRepo    := postgresrepo.NewAttributeValueRepository(db)
+	attributeValueRepo    := postgres.NewAttributeValueRepository(db)
 	attributeValueService := services.NewAttributeValueService(attributeValueRepo)
 	attributeValueHandler := controllers.NewAttributeValueHandler(attributeValueService)
 
-	variantAttributeValueRepo    := postgresrepo.NewVariantAttributeValueRepository(db)
+	variantAttributeValueRepo    := postgres.NewVariantAttributeValueRepository(db)
 	variantAttributeValueService := services.NewVariantAttributeValueService(variantAttributeValueRepo)
 	variantAttributeValueHandler := controllers.NewVariantAttributeValueHandler(variantAttributeValueService)
 
@@ -49,7 +51,7 @@ func NewModule(db *pgxpool.Pool) *Module {
 		ProductVariantHandler: 			productVariantHandler,
 		AttributeHandler:    			attributeHandler,
 		AttributeValueHandler:			attributeValueHandler,
-		VariantAttributeValueHandler: 	variantAttributeValueHandler
+		VariantAttributeValueHandler: 	variantAttributeValueHandler,
 	}
 }
 

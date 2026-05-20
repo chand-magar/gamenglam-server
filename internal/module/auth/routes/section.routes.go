@@ -3,7 +3,7 @@ package routes
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/chand-magar/gamenglam-server/internal/module/user/controllers"
+	"github.com/chand-magar/gamenglam-server/internal/module/auth/controllers"
 )
 
 func SectionRoutes(rg *gin.RouterGroup, h *controllers.SectionHandler) {

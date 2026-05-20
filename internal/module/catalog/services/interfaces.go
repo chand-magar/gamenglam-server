@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/chand-magar/gamenglam-server/internal/module/catelog/models"
+	"github.com/chand-magar/gamenglam-server/internal/module/catalog/models"
 )
 
 type CategoryService interface {

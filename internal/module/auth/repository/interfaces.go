@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/chand-magar/gamenglam-server/internal/module/user/models"
+	"github.com/chand-magar/gamenglam-server/internal/module/auth/models"
 )
 
 type UserRepository interface {

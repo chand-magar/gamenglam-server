@@ -8,8 +8,8 @@ import (
 	"github.com/google/uuid"
 
 	// Both live inside the module now — no flat internal/models or internal/services
-	"github.com/chand-magar/gamenglam-server/internal/module/user/models"
-	"github.com/chand-magar/gamenglam-server/internal/module/user/services"
+	"github.com/chand-magar/gamenglam-server/internal/module/auth/models"
+	"github.com/chand-magar/gamenglam-server/internal/module/auth/services"
 )
 
 type PageHandler struct {

@@ -1,13 +1,13 @@
-package user
+package auth
 
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool" // pgxpool, not gorm
 
-	"github.com/chand-magar/gamenglam-server/internal/module/user/controllers"
-	postgres "github.com/chand-magar/gamenglam-server/internal/module/user/repository/postgres"
-	"github.com/chand-magar/gamenglam-server/internal/module/user/routes"
-	"github.com/chand-magar/gamenglam-server/internal/module/user/services"
+	"github.com/chand-magar/gamenglam-server/internal/module/auth/controllers"
+	postgres "github.com/chand-magar/gamenglam-server/internal/module/auth/repository/postgres"
+	"github.com/chand-magar/gamenglam-server/internal/module/auth/routes"
+	"github.com/chand-magar/gamenglam-server/internal/module/auth/services"
 )
 
 type Module struct {

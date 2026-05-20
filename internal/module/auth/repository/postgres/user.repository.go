@@ -8,8 +8,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/chand-magar/gamenglam-server/internal/module/user/models"
-	"github.com/chand-magar/gamenglam-server/internal/module/user/repository"
+	"github.com/chand-magar/gamenglam-server/internal/module/auth/models"
+	"github.com/chand-magar/gamenglam-server/internal/module/auth/repository"
 )
 
 type userRepository struct {
@@ -39,7 +39,7 @@ func (r *userRepository) GetAll(ctx context.Context) ([]models.User, error) {
 			created_by,
 			updated_at,
 			updated_by
-		FROM master.users
+		FROM auth.users
 		WHERE status != 'D'
 		ORDER BY created_at DESC
 	`
@@ -97,7 +97,7 @@ func (r *userRepository) GetById(ctx context.Context, Id uuid.UUID) (*models.Use
 			created_by,
 			updated_at,
 			updated_by
-		FROM master.users
+		FROM auth.users
 		WHERE profile_id = $1
 		AND status != 'D'
 	`
@@ -146,7 +146,7 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*models.
 			created_by,
 			updated_at,
 			updated_by
-		FROM master.users
+		FROM auth.users
 		WHERE email_id = $1
 		AND status != 'D'
 	`
@@ -192,7 +192,7 @@ func (r *userRepository) Save(ctx context.Context, user *models.User) (*models.U
 	}()
 
 	query := `
-		INSERT INTO master.users (
+		INSERT INTO auth.users (
 			profile_id,
 			role_no,
 			user_fullname,
@@ -274,7 +274,7 @@ func (r *userRepository) Modify(ctx context.Context, Id uuid.UUID, req *models.U
 	// Lock row by profile_id — prevents lost updates
 	var lockedNo uint32
 	err = tx.QueryRow(ctx, `
-		SELECT profile_no FROM master.users
+		SELECT profile_no FROM auth.users
 		WHERE profile_id = $1 AND status != 'D'
 	`, Id).Scan(&lockedNo)
 	if err != nil {
@@ -285,7 +285,7 @@ func (r *userRepository) Modify(ctx context.Context, Id uuid.UUID, req *models.U
 	}
 
 	query := `
-		UPDATE master.users
+		UPDATE auth.users
 		SET
 			user_fullname = COALESCE(NULLIF($1, ''), user_fullname),
 			email_id      = COALESCE(NULLIF($2, ''), email_id),
@@ -362,7 +362,7 @@ func (r *userRepository) Remove(ctx context.Context, Id uuid.UUID) error {
 	// Lock row by profile_id before soft delete
 	var lockedNo uint32
 	err = tx.QueryRow(ctx, `
-		SELECT profile_no FROM master.users
+		SELECT profile_no FROM auth.users
 		WHERE profile_id = $1 AND status != 'D'
 	`, Id).Scan(&lockedNo)
 	if err != nil {
@@ -373,7 +373,7 @@ func (r *userRepository) Remove(ctx context.Context, Id uuid.UUID) error {
 	}
 
 	_, err = tx.Exec(ctx, `
-		UPDATE master.users
+		UPDATE auth.users
 		SET
 			status     = 'D',
 			updated_at = NOW()

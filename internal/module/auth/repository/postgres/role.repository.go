@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/chand-magar/gamenglam-server/internal/module/user/models"
-	"github.com/chand-magar/gamenglam-server/internal/module/user/repository"
+	"github.com/chand-magar/gamenglam-server/internal/module/auth/models"
+	"github.com/chand-magar/gamenglam-server/internal/module/auth/repository"
 )
 
 type roleRepository struct {
@@ -64,7 +64,7 @@ func (r *roleRepository) GetAll(ctx context.Context) ([]models.Role, error) {
 			created_by,
 			updated_at,
 			updated_by
-		FROM master.roles
+		FROM auth.roles
 		WHERE status != 'D'
 		ORDER BY created_at DESC
 	`
@@ -120,7 +120,7 @@ func (r *roleRepository) GetById(ctx context.Context, Id uuid.UUID) (*models.Rol
 			created_by,
 			updated_at,
 			updated_by
-		FROM master.roles
+		FROM auth.roles
 		WHERE role_id = $1
 		AND status != 'D'
 	`
@@ -172,7 +172,7 @@ func (r *roleRepository) Save(ctx context.Context, role *models.Role) (*models.R
 	}
 
 	query := `
-		INSERT INTO master.roles (
+		INSERT INTO auth.roles (
 			role_id,
 			role_name,
 			role_details,
@@ -240,7 +240,7 @@ func (r *roleRepository) Modify(ctx context.Context, Id uuid.UUID, req *models.U
 	// Lock row — prevents lost updates
 	var lockedNo uint8
 	err = tx.QueryRow(ctx, `
-		SELECT role_no FROM master.roles
+		SELECT role_no FROM auth.roles
 		WHERE role_id = $1 AND status != 'D'
 	`, Id).Scan(&lockedNo)
 	if err != nil {
@@ -256,7 +256,7 @@ func (r *roleRepository) Modify(ctx context.Context, Id uuid.UUID, req *models.U
 	}
 
 	query := `
-		UPDATE master.roles
+		UPDATE auth.roles
 		SET
 			role_name    = COALESCE(NULLIF($1, ''), role_name),
 			role_details = CASE WHEN $2::text = '[]' THEN role_details ELSE $2 END,
@@ -322,7 +322,7 @@ func (r *roleRepository) Remove(ctx context.Context, Id uuid.UUID) error {
 
 	var lockedNo uint8
 	err = tx.QueryRow(ctx, `
-		SELECT role_no FROM master.roles
+		SELECT role_no FROM auth.roles
 		WHERE role_id = $1 AND status != 'D'
 	`, Id).Scan(&lockedNo)
 	if err != nil {
@@ -333,7 +333,7 @@ func (r *roleRepository) Remove(ctx context.Context, Id uuid.UUID) error {
 	}
 
 	_, err = tx.Exec(ctx, `
-		UPDATE master.roles
+		UPDATE auth.roles
 		SET
 			status     = 'D',
 			updated_at = NOW()

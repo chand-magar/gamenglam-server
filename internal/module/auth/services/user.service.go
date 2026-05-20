@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/chand-magar/gamenglam-server/internal/module/user/models"
-	"github.com/chand-magar/gamenglam-server/internal/module/user/repository"
+	"github.com/chand-magar/gamenglam-server/internal/module/auth/models"
+	"github.com/chand-magar/gamenglam-server/internal/module/auth/repository"
 )
 
 var (

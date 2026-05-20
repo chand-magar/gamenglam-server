@@ -9,8 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/chand-magar/gamenglam-server/internal/module/user/models"
-	"github.com/chand-magar/gamenglam-server/internal/module/user/repository"
+	"github.com/chand-magar/gamenglam-server/internal/module/auth/models"
+	"github.com/chand-magar/gamenglam-server/internal/module/auth/repository"
 )
 
 type pageRepository struct {
@@ -27,7 +27,7 @@ func (r *pageRepository) GetAll(ctx context.Context) ([]models.Page, error) {
 			page_no, page_id, section_no, page_name,
 			page_path, page_order, status,
 			created_at, created_by, updated_at, updated_by
-		FROM master.pages
+		FROM auth.pages
 		WHERE status != 'D'
 		ORDER BY created_at DESC
 	`
@@ -61,7 +61,7 @@ func (r *pageRepository) GetById(ctx context.Context, Id uuid.UUID) (*models.Pag
 			page_no, page_id, section_no, page_name,
 			page_path, page_order, status,
 			created_at, created_by, updated_at, updated_by
-		FROM master.pages
+		FROM auth.pages
 		WHERE page_id = $1 AND status != 'D'
 	`
 	var d models.Page
@@ -91,7 +91,7 @@ func (r *pageRepository) Save(ctx context.Context, page *models.Page) (*models.P
 	}()
 
 	query := `
-		INSERT INTO master.pages (
+		INSERT INTO auth.pages (
 			page_id, section_no, page_name, page_path, page_order, status, created_by
 		) VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING
@@ -136,7 +136,7 @@ func (r *pageRepository) Modify(ctx context.Context, Id uuid.UUID, req *models.U
 
 	var lockedNo uint8
 	err = tx.QueryRow(ctx,
-		`SELECT page_no FROM master.pages WHERE page_id = $1 AND status != 'D'`,
+		`SELECT page_no FROM auth.pages WHERE page_id = $1 AND status != 'D'`,
 		Id,
 	).Scan(&lockedNo)
 	if err != nil {
@@ -147,7 +147,7 @@ func (r *pageRepository) Modify(ctx context.Context, Id uuid.UUID, req *models.U
 	}
 
 	query := `
-		UPDATE master.pages SET
+		UPDATE auth.pages SET
 			page_name  = COALESCE(NULLIF($1, ''), page_name),
 			page_path  = COALESCE(NULLIF($2, ''), page_path),
 			page_order = COALESCE($3, page_order),
@@ -194,7 +194,7 @@ func (r *pageRepository) Remove(ctx context.Context, Id uuid.UUID) error {
 
 	var lockedNo uint8
 	err = tx.QueryRow(ctx,
-		`SELECT page_no FROM master.pages WHERE page_id = $1 AND status != 'D'`,
+		`SELECT page_no FROM auth.pages WHERE page_id = $1 AND status != 'D'`,
 		Id,
 	).Scan(&lockedNo)
 	if err != nil {
@@ -205,7 +205,7 @@ func (r *pageRepository) Remove(ctx context.Context, Id uuid.UUID) error {
 	}
 
 	_, err = tx.Exec(ctx, `
-		UPDATE master.pages SET status = 'D', updated_at = NOW()
+		UPDATE auth.pages SET status = 'D', updated_at = NOW()
 		WHERE page_id = $1
 	`, Id)
 	if err != nil {

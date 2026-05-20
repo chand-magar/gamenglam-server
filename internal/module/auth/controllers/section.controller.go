@@ -7,38 +7,38 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/chand-magar/gamenglam-server/internal/module/user/models"
-	"github.com/chand-magar/gamenglam-server/internal/module/user/services"
+	"github.com/chand-magar/gamenglam-server/internal/module/auth/models"
+	"github.com/chand-magar/gamenglam-server/internal/module/auth/services"
 )
 
-type UserHandler struct {
-	svc services.UserService
+type SectionHandler struct {
+	svc services.SectionService
 }
 
-func NewUserHandler(svc services.UserService) *UserHandler {
-	return &UserHandler{svc: svc}
+func NewSectionHandler(svc services.SectionService) *SectionHandler {
+	return &SectionHandler{svc: svc}
 }
 
-func (h *UserHandler) FindAll(c *gin.Context) {
-	users, err := h.svc.FindAll(c.Request.Context())
+func (h *SectionHandler) FindAll(c *gin.Context) {
+	datas, err := h.svc.FindAll(c.Request.Context())
 	if err != nil {
 		ErrorResponse(c, http.StatusInternalServerError, "An internal server error occurred.")
 		return
 	}
 
-	SuccessResponse(c, users, "Records retrieved successfully.")
+	SuccessResponse(c, datas, "Records retrieved successfully.")
 }
 
-func (h *UserHandler) FindOne(c *gin.Context) {
+func (h *SectionHandler) FindOne(c *gin.Context) {
 	Id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		ErrorResponse(c, http.StatusBadRequest, "Record not found.")
+		ErrorResponse(c, http.StatusBadRequest, "Invalid ID provided.")
 		return
 	}
 
-	user, err := h.svc.FindOne(c.Request.Context(), Id)
+	data, err := h.svc.FindOne(c.Request.Context(), Id)
 	if err != nil {
-		if errors.Is(err, services.ErrUserNotFound) {
+		if errors.Is(err, services.ErrSectionNotFound) {
 			ErrorResponse(c, http.StatusNotFound, "Record not found.")
 			return
 		}
@@ -46,22 +46,18 @@ func (h *UserHandler) FindOne(c *gin.Context) {
 		return
 	}
 
-	SuccessResponse(c, user, "Record retrieved successfully.")
+	SuccessResponse(c, data, "Record retrieved successfully.")
 }
 
-func (h *UserHandler) Create(c *gin.Context) {
-	var req models.CreateUserRequest
+func (h *SectionHandler) Create(c *gin.Context) {
+	var req models.CreateSectionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		ErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	user, err := h.svc.Create(c.Request.Context(), &req)
+	data, err := h.svc.Create(c.Request.Context(), &req)
 	if err != nil {
-		if errors.Is(err, services.ErrEmailAlreadyExists) {
-			ErrorResponse(c, http.StatusConflict, "Email already exists")
-			return
-		}
 		ErrorResponse(c, http.StatusInternalServerError, "Failed to create the record.")
 		return
 	}
@@ -69,26 +65,26 @@ func (h *UserHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"success": true,
 		"message": "Record created successfully.",
-		"data":    user,
+		"data":    data,
 	})
 }
 
-func (h *UserHandler) Update(c *gin.Context) {
+func (h *SectionHandler) Update(c *gin.Context) {
 	Id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		ErrorResponse(c, http.StatusBadRequest, "Invalid ID provided.")
 		return
 	}
 
-	var req models.UpdateUserRequest
+	var req models.UpdateSectionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		ErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	user, err := h.svc.Update(c.Request.Context(), Id, &req)
+	data, err := h.svc.Update(c.Request.Context(), Id, &req)
 	if err != nil {
-		if errors.Is(err, services.ErrUserNotFound) {
+		if errors.Is(err, services.ErrSectionNotFound) {
 			ErrorResponse(c, http.StatusNotFound, "Record not found.")
 			return
 		}
@@ -96,10 +92,10 @@ func (h *UserHandler) Update(c *gin.Context) {
 		return
 	}
 
-	SuccessResponse(c, user, "Record updated successfully.")
+	SuccessResponse(c, data, "Record updated successfully.")
 }
 
-func (h *UserHandler) Delete(c *gin.Context) {
+func (h *SectionHandler) Delete(c *gin.Context) {
 	Id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		ErrorResponse(c, http.StatusBadRequest, "Invalid ID provided.")
@@ -107,7 +103,7 @@ func (h *UserHandler) Delete(c *gin.Context) {
 	}
 
 	if err := h.svc.Delete(c.Request.Context(), Id); err != nil {
-		if errors.Is(err, services.ErrUserNotFound) {
+		if errors.Is(err, services.ErrSectionNotFound) {
 			ErrorResponse(c, http.StatusNotFound, "Record not found.")
 			return
 		}

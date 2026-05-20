@@ -9,8 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/chand-magar/gamenglam-server/internal/module/user/models"
-	"github.com/chand-magar/gamenglam-server/internal/module/user/repository"
+	"github.com/chand-magar/gamenglam-server/internal/module/auth/models"
+	"github.com/chand-magar/gamenglam-server/internal/module/auth/repository"
 )
 
 type sectionRepository struct {
@@ -37,7 +37,7 @@ func (r *sectionRepository) GetAll(ctx context.Context) ([]models.Section, error
 			created_by,
 			updated_at,
 			updated_by
-		FROM master.sections
+		FROM auth.sections
 		WHERE status != 'D'
 		ORDER BY created_at DESC
 	`
@@ -92,7 +92,7 @@ func (r *sectionRepository) GetById(ctx context.Context, Id uuid.UUID) (*models.
 			created_by,
 			updated_at,
 			updated_by
-		FROM master.sections
+		FROM auth.sections
 		WHERE section_id = $1
 		AND status != 'D'
 	`
@@ -136,7 +136,7 @@ func (r *sectionRepository) Save(ctx context.Context, section *models.Section) (
 	}()
 
 	query := `
-		INSERT INTO master.sections (
+		INSERT INTO auth.sections (
 			section_id,
 			section_name,
 			section_path,
@@ -203,7 +203,7 @@ func (r *sectionRepository) Modify(ctx context.Context, Id uuid.UUID, req *model
 	// Lock row — prevents lost updates
 	var lockedNo uint8
 	err = tx.QueryRow(ctx, `
-		SELECT section_no FROM master.sections
+		SELECT section_no FROM auth.sections
 		WHERE section_id = $1 AND status != 'D'
 	`, Id).Scan(&lockedNo)
 	if err != nil {
@@ -214,7 +214,7 @@ func (r *sectionRepository) Modify(ctx context.Context, Id uuid.UUID, req *model
 	}
 
 	query := `
-		UPDATE master.sections
+		UPDATE auth.sections
 		SET
 			section_name    = COALESCE(NULLIF($1, ''), section_name),
 			section_path 	= COALESCE(NULLIF($2, ''), section_path),
@@ -281,7 +281,7 @@ func (r *sectionRepository) Remove(ctx context.Context, Id uuid.UUID) error {
 
 	var lockedNo uint8
 	err = tx.QueryRow(ctx, `
-		SELECT section_no FROM master.sections
+		SELECT section_no FROM auth.sections
 		WHERE section_id = $1 AND status != 'D'
 	`, Id).Scan(&lockedNo)
 	if err != nil {
@@ -292,7 +292,7 @@ func (r *sectionRepository) Remove(ctx context.Context, Id uuid.UUID) error {
 	}
 
 	_, err = tx.Exec(ctx, `
-		UPDATE master.sections
+		UPDATE auth.sections
 		SET
 			status     = 'D',
 			updated_at = NOW()

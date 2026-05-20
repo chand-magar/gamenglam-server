@@ -3,7 +3,7 @@ package routes
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/chand-magar/fatafati-product-management-microservice/internal/controllers"
+	"github.com/chand-magar/gamenglam-server/internal/module/catalog/controllers"
 )
 
 func VariantAttributeValueRoutes(rg *gin.RouterGroup, h *controllers.VariantAttributeValueHandler) {
