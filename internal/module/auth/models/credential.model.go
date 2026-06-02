@@ -18,3 +18,13 @@ type Credentials struct {
 	UpdatedAt    time.Time  `json:"updated_at"`
 	UpdatedBy    uint32     `json:"updated_by"`
 }
+
+type CreateCredentialRequest struct {
+	Password     	string  `json:"password"      binding:"required,min=8"`
+}
+
+type UpdateCredentialRequest struct {
+	EmailId      	string  `json:"email_id"      binding:"omitempty,email"`
+	Password     	string  `json:"password"      binding:"required,min=8"`
+	UpdatedBy    	*uint32 `json:"updated_by"`
+}
