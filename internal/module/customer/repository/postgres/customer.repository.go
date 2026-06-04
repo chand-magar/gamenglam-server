@@ -27,17 +27,15 @@ func (r *customerRepository) GetAll(ctx context.Context) ([]models.Customer, err
 		SELECT
 			customer_no,
 			customer_id,
-			fullname,
+			first_name,
+			last_name,
 			email_id,
 			gender,
 			dob,
 			mobile_no,
-			address,
 			status,
 			created_at,
-			created_by,
-			updated_at,
-			updated_by
+			updated_at
 		FROM customer.customers
 		WHERE status != 'D'
 		ORDER BY created_at DESC
@@ -54,17 +52,15 @@ func (r *customerRepository) GetAll(ctx context.Context) ([]models.Customer, err
 		if err := rows.Scan(
 			&d.CustomerNo,
 			&d.CustomerId,
-			&d.FullName,
+			&d.FirstName,
+			&d.LastName,
 			&d.EmailId,
 			&d.Gender,
 			&d.Dob,
 			&d.MobileNo,
-			&d.Address,
 			&d.Status,
 			&d.CreatedAt,
-			&d.CreatedBy,
 			&d.UpdatedAt,
-			&d.UpdatedBy,
 		); err != nil {
 			return nil, fmt.Errorf("customerRepository.GetAll: scan: %w", err)
 		}
@@ -83,17 +79,15 @@ func (r *customerRepository) GetById(ctx context.Context, Id uuid.UUID) (*models
 		SELECT
 			customer_no,
 			customer_id,
-			fullname,
+			first_name,
+			last_name,
 			email_id,
 			gender,
 			dob,
 			mobile_no,
-			address,
 			status,
 			created_at,
-			created_by,
-			updated_at,
-			updated_by
+			updated_at
 		FROM customer.customers
 		WHERE customer_id = $1
 		AND status != 'D'
@@ -103,17 +97,14 @@ func (r *customerRepository) GetById(ctx context.Context, Id uuid.UUID) (*models
 	err := r.db.QueryRow(ctx, query, Id).Scan(
 		&d.CustomerNo,
 		&d.CustomerId,
-		&d.FullName,
+		&d.FirstName,
+		&d.LastName,
 		&d.EmailId,
 		&d.Gender,
 		&d.Dob,
 		&d.MobileNo,
-		&d.Address,
 		&d.Status,
 		&d.CreatedAt,
-		&d.CreatedBy,
-		&d.UpdatedAt,
-		&d.UpdatedBy,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -130,17 +121,15 @@ func (r *customerRepository) GetByEmail(ctx context.Context, email string) (*mod
 		SELECT
 			customer_no,
 			customer_id,
-			fullname,
+			first_name,
+			last_name,
 			email_id,
 			gender,
 			dob,
 			mobile_no,
-			address,
 			status,
 			created_at,
-			created_by,
-			updated_at,
-			updated_by
+			updated_at
 		FROM customer.customers
 		WHERE email_id = $1
 		AND status != 'D'
@@ -150,17 +139,15 @@ func (r *customerRepository) GetByEmail(ctx context.Context, email string) (*mod
 	err := r.db.QueryRow(ctx, query, email).Scan(
 		&d.CustomerNo,
 		&d.CustomerId,
-		&d.FullName,
+		&d.FirstName,
+		&d.LastName,
 		&d.EmailId,
 		&d.Gender,
 		&d.Dob,
 		&d.MobileNo,
-		&d.Address,
 		&d.Status,
 		&d.CreatedAt,
-		&d.CreatedBy,
 		&d.UpdatedAt,
-		&d.UpdatedBy,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -188,56 +175,50 @@ func (r *customerRepository) Save(ctx context.Context, user *models.Customer) (*
 	query := `
 		INSERT INTO customer.customers (
 			customer_id,
-			fullname,
+			first_name,
+			last_name,
 			email_id,
 			gender,
 			dob,
 			mobile_no,
-			address,
 			status,
-			created_by
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING
 			customer_no,
 			customer_id,
-			fullname,
+			first_name,
+			last_name,
 			email_id,
 			gender,
 			dob,
 			mobile_no,
-			address,
 			status,
 			created_at,
-			created_by,
-			updated_at,
-			updated_by
+			updated_at
 	`
 
 	var d models.Customer
 	err = tx.QueryRow(ctx, query,
 		user.CustomerId,
-		user.FullName,
+		user.FirstName,
+		user.LastName,
 		user.EmailId,
 		user.Gender,
 		user.Dob,
 		user.MobileNo,
-		user.Address,
 		models.StatusActive,
-		user.CreatedBy,
 	).Scan(
 		&d.CustomerNo,
 		&d.CustomerId,
-		&d.FullName,
+		&d.FirstName,
+		&d.LastName,
 		&d.EmailId,
 		&d.Gender,
 		&d.Dob,
 		&d.MobileNo,
-		&d.Address,
 		&d.Status,
 		&d.CreatedAt,
-		&d.CreatedBy,
 		&d.UpdatedAt,
-		&d.UpdatedBy,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("customerRepository.Save: insert: %w", err)
@@ -277,53 +258,47 @@ func (r *customerRepository) Modify(ctx context.Context, Id uuid.UUID, req *mode
 	query := `
 		UPDATE customer.customers
 		SET
-			fullname = COALESCE(NULLIF($1, ''), fullname),
+			first_name = COALESCE(NULLIF($1, ''), first_name),
+			last_name = COALESCE(NULLIF($1, ''), last_name),
 			email_id      = COALESCE(NULLIF($2, ''), email_id),
 			gender        = COALESCE(NULLIF($3, ''), gender),
 			mobile_no     = COALESCE(NULLIF($4, ''), mobile_no),
-			address       = CASE WHEN $5::text = '' THEN address ELSE $5::jsonb END,
 			updated_at    = NOW(),
-			updated_by    = $6
-		WHERE customer_id  = $7
+		WHERE customer_id  = $6
 		RETURNING
 			customer_no,
 			customer_id,
-			fullname,
+			first_name,
+			last_name,
 			email_id,
 			gender,
 			dob,
 			mobile_no,
-			address,
 			status,
 			created_at,
-			created_by,
-			updated_at,
-			updated_by
+			updated_at
 	`
 
 	var d models.Customer
 	err = tx.QueryRow(ctx, query,
-		req.FullName,
+		req.FirstName,
+		req.LastName,
 		req.EmailId,
 		req.Gender,
 		req.MobileNo,
-		req.Address,
-		req.UpdatedBy,
 		Id,
 	).Scan(
 		&d.CustomerNo,
 		&d.CustomerId,
-		&d.FullName,
+		&d.FirstName,
+		&d.LastName,
 		&d.EmailId,
 		&d.Gender,
 		&d.Dob,
 		&d.MobileNo,
-		&d.Address,
 		&d.Status,
 		&d.CreatedAt,
-		&d.CreatedBy,
 		&d.UpdatedAt,
-		&d.UpdatedBy,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("customerRepository.Modify: Modify: %w", err)

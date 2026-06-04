@@ -27,6 +27,7 @@ type ProductService interface {
 type ProductVariantService interface {
 	FindAll(ctx context.Context) ([]models.ProductVariant, error)
 	FindOne(ctx context.Context, Id uuid.UUID) (*models.ProductVariant, error)
+	FindOneByNo(ctx context.Context, variantNo uint32) (*models.EnrichedVariant, error) // new
 	Create(ctx context.Context, req *models.CreateProductVariantRequest) (*models.ProductVariant, error)
 	Update(ctx context.Context, Id uuid.UUID, req *models.UpdateProductVariantRequest) (*models.ProductVariant, error)
 	Delete(ctx context.Context, Id uuid.UUID) error

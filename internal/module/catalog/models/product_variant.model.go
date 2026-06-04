@@ -42,3 +42,14 @@ type UpdateProductVariantRequest struct {
 	Status        ProductStatus `json:"status"`
 	UpdatedBy     *uint32       `json:"updated_by"`
 }
+
+// EnrichedVariant — used only for cross-module provider, not stored
+type EnrichedVariant struct {
+	VariantNo   uint32
+	VariantId   uuid.UUID
+	ProductName string
+	SKU         string
+	Attributes  map[string]interface{}
+	Price       float64
+	StockQty    int32
+}

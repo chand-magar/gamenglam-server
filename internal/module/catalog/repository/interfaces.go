@@ -27,6 +27,7 @@ type ProductRepository interface {
 type ProductVariantRepository interface {
 	GetAll(ctx context.Context) ([]models.ProductVariant, error)
 	GetById(ctx context.Context, Id uuid.UUID) (*models.ProductVariant, error)
+	FindOneByNo(ctx context.Context, variantNo uint32) (*models.EnrichedVariant, error)
 	Save(ctx context.Context, product_variant *models.ProductVariant) (*models.ProductVariant, error)
 	Modify(ctx context.Context, Id uuid.UUID, req *models.UpdateProductVariantRequest) (*models.ProductVariant, error)
 	Remove(ctx context.Context, Id uuid.UUID) error

@@ -130,6 +130,61 @@ func (r *productVariantRepository) GetById(ctx context.Context, Id uuid.UUID) (*
 	return &d, nil
 }
 
+func (r *productVariantRepository) FindOneByNo(ctx context.Context, variantNo uint32) (*models.EnrichedVariant, error) {
+	query := `
+		SELECT
+			pv.variant_no,
+			pv.variant_id,
+			p.product_name,
+			pv.sku,
+			COALESCE(pv.price_override, p.base_price) AS price,
+			pv.stock_qty
+		FROM product.product_variants pv
+		JOIN product.products p ON p.product_no = pv.product_no
+		WHERE pv.variant_no = $1
+		AND pv.status = 'active'
+	`
+
+	var ev models.EnrichedVariant
+	err := r.db.QueryRow(ctx, query, variantNo).Scan(
+		&ev.VariantNo,
+		&ev.VariantId,
+		&ev.ProductName,
+		&ev.SKU,
+		&ev.Price,
+		&ev.StockQty,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("productVariantRepository.FindOneByNo: %w", err)
+	}
+
+	// Fetch variant attributes
+	rows, err := r.db.Query(ctx, `
+		SELECT av.code, av.value
+		FROM product.variant_attribute_values vav
+		JOIN product.attribute_values av ON av.attribute_value_no = vav.attribute_value_no
+		WHERE vav.variant_no = $1
+	`, variantNo)
+	if err != nil {
+		return nil, fmt.Errorf("productVariantRepository.FindOneByNo: fetch attributes: %w", err)
+	}
+	defer rows.Close()
+
+	ev.Attributes = make(map[string]interface{})
+	for rows.Next() {
+		var code, value string
+		if err := rows.Scan(&code, &value); err != nil {
+			return nil, fmt.Errorf("productVariantRepository.FindOneByNo: scan attribute: %w", err)
+		}
+		ev.Attributes[code] = value
+	}
+
+	return &ev, nil
+}
+
 // ── WRITE operations (ACID — transaction + row lock) ──────────────────────────
 
 func (r *productVariantRepository) Save(ctx context.Context, productVariant *models.ProductVariant) (*models.ProductVariant, error) {

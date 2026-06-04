@@ -7,6 +7,8 @@ import (
 	"github.com/chand-magar/gamenglam-server/internal/module/auth"
 	"github.com/chand-magar/gamenglam-server/internal/module/catalog"
 	"github.com/chand-magar/gamenglam-server/internal/module/customer"
+	"github.com/chand-magar/gamenglam-server/internal/module/order"
+	orderservices "github.com/chand-magar/gamenglam-server/internal/module/order/services"
 )
 
 func SetupRouter(router *gin.Engine, db *pgxpool.Pool) {
@@ -20,4 +22,12 @@ func SetupRouter(router *gin.Engine, db *pgxpool.Pool) {
 
 	customerModule := customer.NewModule(db)
 	customerModule.RegisterRoutes(api)
+
+	// Adapters — wire catalog and customer into order module
+	orderModule := order.NewModule(
+		db,
+		catalogModule.AsCatalogProvider(),
+		customerModule.AsCustomerProvider(),
+	)
+	orderModule.RegisterRoutes(api)
 }

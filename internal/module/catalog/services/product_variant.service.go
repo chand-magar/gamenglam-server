@@ -47,6 +47,15 @@ func (s *productVariantService) FindOne(ctx context.Context, Id uuid.UUID) (*mod
 	return data, nil
 }
 
+func (s *productVariantService) FindOneByNo(ctx context.Context, variantNo uint32) (*models.EnrichedVariant, error) {
+	variant, err := s.repo.FindOneByNo(ctx, variantNo)
+	if err != nil {
+		log.Printf("productVariantService.FindOneByNo error: %v", err)
+		return nil, fmt.Errorf("productVariantService.FindOneByNo: %w", err)
+	}
+	return variant, nil
+}
+
 func (s *productVariantService) Create(ctx context.Context, req *models.CreateProductVariantRequest) (*models.ProductVariant, error) {
 	productVariant := &models.ProductVariant{
 		VariantId:     uuid.New(),

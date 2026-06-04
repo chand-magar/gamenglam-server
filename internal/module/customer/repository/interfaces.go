@@ -16,3 +16,12 @@ type CustomerRepository interface {
 	Modify(ctx context.Context, Id uuid.UUID, req *models.UpdateCustomerRequest) (*models.Customer, error)
 	Remove(ctx context.Context, Id uuid.UUID) error
 }
+
+type AddressRepository interface {
+	GetAllByCustomerNo(ctx context.Context, customerNo uint32) ([]models.Address, error)
+	GetByNo(ctx context.Context, addressNo uint32) (*models.Address, error)
+	GetById(ctx context.Context, Id uuid.UUID) (*models.Address, error)
+	Save(ctx context.Context, address *models.Address) (*models.Address, error)
+	Modify(ctx context.Context, Id uuid.UUID, req *models.UpdateAddressRequest) (*models.Address, error)
+	Remove(ctx context.Context, Id uuid.UUID) error
+}

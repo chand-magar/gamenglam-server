@@ -14,9 +14,7 @@ type Credentials struct {
 	Password     	string     `json:"password"`
 	Status      	StatusEnum `json:"status"`
 	CreatedAt    	time.Time  `json:"created_at"`
-	CreatedBy    	uint32     `json:"created_by"`
 	UpdatedAt    	time.Time  `json:"updated_at"`
-	UpdatedBy    	uint32     `json:"updated_by"`
 }
 
 type CreateCredentialRequest struct {

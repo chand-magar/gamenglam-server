@@ -66,7 +66,8 @@ func (s *customerService) Create(ctx context.Context, req *models.CreateCustomer
 
 	customer := &models.Customer{
 		CustomerId:  uuid.New(),
-		FullName: 	req.FullName,
+		FirstName: 	req.FirstName,
+		LastName: 	req.LastName,
 		EmailId:    req.EmailId,
 		MobileNo:   req.MobileNo,
 		Gender:     req.Gender,
