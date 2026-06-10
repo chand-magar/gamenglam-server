@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/chand-magar/gamenglam-server/internal/module/auth/models"
-	"github.com/chand-magar/gamenglam-server/internal/module/auth/repository"
+	"github.com/chand-magar/gamenglam-server/internal/module/employee/models"
+	"github.com/chand-magar/gamenglam-server/internal/module/employee/repository"
 )
 
 var (
@@ -49,12 +49,12 @@ func (s *pageService) FindOne(ctx context.Context, Id uuid.UUID) (*models.Page, 
 
 func (s *pageService) Create(ctx context.Context, req *models.CreatePageRequest) (*models.Page, error) {
 	page := &models.Page{
-		PageId:     uuid.New(),
-		SectionNo: 	req.SectionNo,
-		PageName:   req.PageName,
-		PagePath: 	req.PagePath,
-		PageOrder: 	req.PageOrder,
-		Status:     models.StatusActive,
+		PageId:    uuid.New(),
+		SectionNo: req.SectionNo,
+		PageName:  req.PageName,
+		PagePath:  req.PagePath,
+		PageOrder: req.PageOrder,
+		Status:    models.StatusActive,
 	}
 
 	created, err := s.repo.Save(ctx, page)

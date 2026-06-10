@@ -14,9 +14,9 @@ import (
 )
 
 var (
-	ErrCartItemNotFound    = errors.New("cart item not found")
-	ErrInsufficientStock   = errors.New("insufficient stock")
-	ErrVariantNotFound     = errors.New("variant not found")
+	ErrCartItemNotFound  = errors.New("cart item not found")
+	ErrInsufficientStock = errors.New("insufficient stock")
+	ErrVariantNotFound   = errors.New("variant not found")
 )
 
 type cartService struct {
@@ -28,21 +28,19 @@ func NewCartService(repo repository.CartRepository, catalogProvider CatalogProvi
 	return &cartService{repo: repo, catalogProvider: catalogProvider}
 }
 
-func (s *cartService) GetCart(ctx context.Context, customerNo uint32) (*models.Cart, error) {
-	cart, err := s.repo.GetCartWithItems(ctx, customerNo)
+func (s *cartService) GetCart(ctx context.Context, customerId uuid.UUID) (*models.Cart, error) {
+	cart, err := s.repo.GetCartWithItems(ctx, customerId)
 	if err != nil {
 		log.Printf("cartService.GetCart error: %v", err)
 		return nil, fmt.Errorf("cartService.GetCart: %w", err)
 	}
 	if cart == nil {
-		// Return empty cart — don't error on missing cart
-		return &models.Cart{CustomerNo: customerNo, Items: []models.CartItem{}}, nil
+		return &models.Cart{Items: []models.CartItem{}}, nil
 	}
 	return cart, nil
 }
 
-func (s *cartService) AddItem(ctx context.Context, customerNo uint32, req *models.AddCartItemRequest) (*models.CartItem, error) {
-	// Validate variant exists and has stock
+func (s *cartService) AddItem(ctx context.Context, customerId uuid.UUID, req *models.AddCartItemRequest) (*models.CartItem, error) {
 	variant, err := s.catalogProvider.GetVariantByNo(ctx, req.VariantNo)
 	if err != nil {
 		return nil, fmt.Errorf("cartService.AddItem: %w", err)
@@ -54,19 +52,17 @@ func (s *cartService) AddItem(ctx context.Context, customerNo uint32, req *model
 		return nil, ErrInsufficientStock
 	}
 
-	// Get or create cart
-	cart, err := s.repo.GetByCustomerNo(ctx, customerNo)
+	cart, err := s.repo.GetByCustomerId(ctx, customerId)
 	if err != nil {
 		return nil, fmt.Errorf("cartService.AddItem: %w", err)
 	}
 	if cart == nil {
-		cart, err = s.repo.SaveCart(ctx, customerNo)
+		cart, err = s.repo.SaveCart(ctx, customerId)
 		if err != nil {
 			return nil, fmt.Errorf("cartService.AddItem: create cart: %w", err)
 		}
 	}
 
-	// If item already in cart — update quantity instead
 	existing, err := s.repo.GetCartItem(ctx, cart.CartNo, req.VariantNo)
 	if err != nil {
 		return nil, fmt.Errorf("cartService.AddItem: %w", err)
@@ -104,8 +100,8 @@ func (s *cartService) RemoveItem(ctx context.Context, cartItemId uuid.UUID) erro
 	return nil
 }
 
-func (s *cartService) ClearCart(ctx context.Context, customerNo uint32) error {
-	cart, err := s.repo.GetByCustomerNo(ctx, customerNo)
+func (s *cartService) ClearCart(ctx context.Context, customerId uuid.UUID) error {
+	cart, err := s.repo.GetByCustomerId(ctx, customerId)
 	if err != nil {
 		return fmt.Errorf("cartService.ClearCart: %w", err)
 	}

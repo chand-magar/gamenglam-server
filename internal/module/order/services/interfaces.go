@@ -40,16 +40,16 @@ type CustomerAddress struct {
 }
 
 type CartService interface {
-	GetCart(ctx context.Context, customerNo uint32) (*models.Cart, error)
-	AddItem(ctx context.Context, customerNo uint32, req *models.AddCartItemRequest) (*models.CartItem, error)
+	GetCart(ctx context.Context, customerId uuid.UUID) (*models.Cart, error)
+	AddItem(ctx context.Context, customerId uuid.UUID, req *models.AddCartItemRequest) (*models.CartItem, error)
 	UpdateItem(ctx context.Context, cartItemId uuid.UUID, req *models.UpdateCartItemRequest) (*models.CartItem, error)
 	RemoveItem(ctx context.Context, cartItemId uuid.UUID) error
-	ClearCart(ctx context.Context, customerNo uint32) error
+	ClearCart(ctx context.Context, customerId uuid.UUID) error
 }
 
 type OrderService interface {
 	PlaceOrder(ctx context.Context, req *models.PlaceOrderRequest) (*models.Order, error)
-	GetOrders(ctx context.Context, customerNo uint32) ([]models.Order, error)
+	GetOrders(ctx context.Context, customerId uuid.UUID) ([]models.Order, error)
 	GetOrder(ctx context.Context, orderId uuid.UUID) (*models.Order, error)
 	UpdateStatus(ctx context.Context, orderId uuid.UUID, req *models.UpdateOrderStatusRequest) (*models.Order, error)
 	GetStatusHistory(ctx context.Context, orderNo uint32) ([]models.OrderStatusHistory, error)

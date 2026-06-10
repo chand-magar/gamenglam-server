@@ -35,5 +35,6 @@ func NewModule(db *pgxpool.Pool, catalogProvider services.CatalogProvider, custo
 }
 
 func (m *Module) RegisterRoutes(rg *gin.RouterGroup) {
-	routes.RegisterRoutes(rg, m.cartHandler, m.orderHandler)
+	routes.CartRoutes(rg, m.cartHandler)
+	routes.OrderRoutes(rg, m.orderHandler)
 }

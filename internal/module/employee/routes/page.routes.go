@@ -3,7 +3,7 @@ package routes
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/chand-magar/gamenglam-server/internal/module/auth/controllers"
+	"github.com/chand-magar/gamenglam-server/internal/module/employee/controllers"
 )
 
 func PageRoutes(rg *gin.RouterGroup, h *controllers.PageHandler) {

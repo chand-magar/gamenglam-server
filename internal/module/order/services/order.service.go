@@ -111,8 +111,8 @@ func (s *orderService) PlaceOrder(ctx context.Context, req *models.PlaceOrderReq
 	return created, nil
 }
 
-func (s *orderService) GetOrders(ctx context.Context, customerNo uint32) ([]models.Order, error) {
-	orders, err := s.repo.GetAll(ctx, customerNo)
+func (s *orderService) GetOrders(ctx context.Context, customerId uuid.UUID) ([]models.Order, error) {
+	orders, err := s.repo.GetAll(ctx, customerId)
 	if err != nil {
 		log.Printf("orderService.GetOrders error: %v", err)
 		return nil, fmt.Errorf("orderService.GetOrders: %w", err)

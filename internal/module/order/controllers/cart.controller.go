@@ -3,7 +3,6 @@ package controllers
 import (
 	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -21,13 +20,13 @@ func NewCartHandler(svc services.CartService) *CartHandler {
 }
 
 func (h *CartHandler) GetCart(c *gin.Context) {
-	customerNo, err := parseUint32Param(c, "customer_no")
+	customerId, err := uuid.Parse(c.Param("customer_id"))
 	if err != nil {
-		ErrorResponse(c, http.StatusBadRequest, "Invalid customer_no.")
+		ErrorResponse(c, http.StatusBadRequest, "Invalid customer_id.")
 		return
 	}
 
-	cart, err := h.svc.GetCart(c.Request.Context(), customerNo)
+	cart, err := h.svc.GetCart(c.Request.Context(), customerId)
 	if err != nil {
 		ErrorResponse(c, http.StatusInternalServerError, "An internal server error occurred.")
 		return
@@ -37,9 +36,9 @@ func (h *CartHandler) GetCart(c *gin.Context) {
 }
 
 func (h *CartHandler) AddItem(c *gin.Context) {
-	customerNo, err := parseUint32Param(c, "customer_no")
+	customerId, err := uuid.Parse(c.Param("customer_id"))
 	if err != nil {
-		ErrorResponse(c, http.StatusBadRequest, "Invalid customer_no.")
+		ErrorResponse(c, http.StatusBadRequest, "Invalid customer_id.")
 		return
 	}
 
@@ -49,7 +48,7 @@ func (h *CartHandler) AddItem(c *gin.Context) {
 		return
 	}
 
-	item, err := h.svc.AddItem(c.Request.Context(), customerNo, &req)
+	item, err := h.svc.AddItem(c.Request.Context(), customerId, &req)
 	if err != nil {
 		switch {
 		case errors.Is(err, services.ErrVariantNotFound):
@@ -115,24 +114,16 @@ func (h *CartHandler) RemoveItem(c *gin.Context) {
 }
 
 func (h *CartHandler) ClearCart(c *gin.Context) {
-	customerNo, err := parseUint32Param(c, "customer_no")
+	customerId, err := uuid.Parse(c.Param("customer_id"))
 	if err != nil {
-		ErrorResponse(c, http.StatusBadRequest, "Invalid customer_no.")
+		ErrorResponse(c, http.StatusBadRequest, "Invalid customer_id.")
 		return
 	}
 
-	if err := h.svc.ClearCart(c.Request.Context(), customerNo); err != nil {
+	if err := h.svc.ClearCart(c.Request.Context(), customerId); err != nil {
 		ErrorResponse(c, http.StatusInternalServerError, "An internal server error occurred.")
 		return
 	}
 
 	SuccessResponse(c, nil, "Cart cleared successfully.")
-}
-
-func parseUint32Param(c *gin.Context, key string) (uint32, error) {
-	val, err := strconv.ParseUint(c.Param(key), 10, 32)
-	if err != nil {
-		return 0, err
-	}
-	return uint32(val), nil
 }

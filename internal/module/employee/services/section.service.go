@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/chand-magar/gamenglam-server/internal/module/auth/models"
-	"github.com/chand-magar/gamenglam-server/internal/module/auth/repository"
+	"github.com/chand-magar/gamenglam-server/internal/module/employee/models"
+	"github.com/chand-magar/gamenglam-server/internal/module/employee/repository"
 )
 
 var (
@@ -49,12 +49,12 @@ func (s *sectionService) FindOne(ctx context.Context, Id uuid.UUID) (*models.Sec
 
 func (s *sectionService) Create(ctx context.Context, req *models.CreateSectionRequest) (*models.Section, error) {
 	section := &models.Section{
-		SectionId:      uuid.New(),
-		SectionName:    req.SectionName,
-		SectionPath: 	req.SectionPath,
-		SectionIcon: 	req.SectionIcon,
-		SectionOrder: 	req.SectionOrder,
-		Status:      	models.StatusActive,
+		SectionId:    uuid.New(),
+		SectionName:  req.SectionName,
+		SectionPath:  req.SectionPath,
+		SectionIcon:  req.SectionIcon,
+		SectionOrder: req.SectionOrder,
+		Status:       models.StatusActive,
 	}
 
 	created, err := s.repo.Save(ctx, section)

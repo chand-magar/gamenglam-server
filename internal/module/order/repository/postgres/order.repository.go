@@ -130,17 +130,19 @@ func (r *orderRepository) Save(ctx context.Context, order *models.Order) (*model
 	return &o, nil
 }
 
-func (r *orderRepository) GetAll(ctx context.Context, customerNo uint32) ([]models.Order, error) {
-	rows, err := r.db.Query(ctx, `
+func (r *orderRepository) GetAll(ctx context.Context, customerId uuid.UUID) ([]models.Order, error) {
+	query := `
 		SELECT
-			order_no, order_id, customer_no, address_no,
-			order_ref, subtotal, discount, tax,
-			delivery_fee, total, order_status, notes,
-			created_at, updated_at
-		FROM orders.orders
-		WHERE customer_no = $1
-		ORDER BY created_at DESC
-	`, customerNo)
+			o.order_no, o.order_id, o.customer_no, o.address_no,
+			o.order_ref, o.subtotal, o.discount, o.tax,
+			o.delivery_fee, o.total, o.order_status, o.notes,
+			o.created_at, o.updated_at
+		FROM orders.orders o
+		JOIN customer.customers cu ON cu.customer_no = o.customer_no
+		WHERE cu.customer_id = $1
+		ORDER BY o.created_at DESC
+	`
+	rows, err := r.db.Query(ctx, query, customerId)
 	if err != nil {
 		return nil, fmt.Errorf("orderRepository.GetAll: %w", err)
 	}
@@ -160,13 +162,8 @@ func (r *orderRepository) GetAll(ctx context.Context, customerNo uint32) ([]mode
 		orders = append(orders, o)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("orderRepository.GetAll: rows: %w", err)
-	}
-
-	return orders, nil
+	return orders, rows.Err()
 }
-
 func (r *orderRepository) GetById(ctx context.Context, orderId uuid.UUID) (*models.Order, error) {
 	o, err := scanOrder(r.db.QueryRow(ctx, `
 		SELECT

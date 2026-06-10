@@ -3,7 +3,6 @@ package controllers
 import (
 	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -50,13 +49,13 @@ func (h *OrderHandler) PlaceOrder(c *gin.Context) {
 }
 
 func (h *OrderHandler) GetOrders(c *gin.Context) {
-	customerNo, err := strconv.ParseUint(c.Param("customer_no"), 10, 32)
+	customerId, err := uuid.Parse(c.Param("customer_id"))
 	if err != nil {
-		ErrorResponse(c, http.StatusBadRequest, "Invalid customer_no.")
+		ErrorResponse(c, http.StatusBadRequest, "Invalid customer_id.")
 		return
 	}
 
-	orders, err := h.svc.GetOrders(c.Request.Context(), uint32(customerNo))
+	orders, err := h.svc.GetOrders(c.Request.Context(), customerId)
 	if err != nil {
 		ErrorResponse(c, http.StatusInternalServerError, "An internal server error occurred.")
 		return
@@ -112,13 +111,21 @@ func (h *OrderHandler) UpdateStatus(c *gin.Context) {
 }
 
 func (h *OrderHandler) GetStatusHistory(c *gin.Context) {
-	orderNo, err := strconv.ParseUint(c.Param("order_no"), 10, 32)
+	
+	orderId, err := uuid.Parse(c.Param("order_id"))
 	if err != nil {
-		ErrorResponse(c, http.StatusBadRequest, "Invalid order_no.")
+		ErrorResponse(c, http.StatusBadRequest, "Invalid order_id.")
 		return
 	}
 
-	history, err := h.svc.GetStatusHistory(c.Request.Context(), uint32(orderNo))
+	// Fetch order first to get order_no
+	order, err := h.svc.GetOrder(c.Request.Context(), orderId)
+	if err != nil || order == nil {
+		ErrorResponse(c, http.StatusNotFound, "Order not found.")
+		return
+	}
+
+	history, err := h.svc.GetStatusHistory(c.Request.Context(), order.OrderNo)
 	if err != nil {
 		ErrorResponse(c, http.StatusInternalServerError, "An internal server error occurred.")
 		return

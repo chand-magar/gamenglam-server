@@ -9,8 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/chand-magar/gamenglam-server/internal/module/auth/models"
-	"github.com/chand-magar/gamenglam-server/internal/module/auth/repository"
+	"github.com/chand-magar/gamenglam-server/internal/module/employee/models"
+	"github.com/chand-magar/gamenglam-server/internal/module/employee/repository"
 )
 
 type sectionRepository struct {

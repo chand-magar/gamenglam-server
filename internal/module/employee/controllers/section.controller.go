@@ -7,19 +7,19 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/chand-magar/gamenglam-server/internal/module/auth/models"
-	"github.com/chand-magar/gamenglam-server/internal/module/auth/services"
+	"github.com/chand-magar/gamenglam-server/internal/module/employee/models"
+	"github.com/chand-magar/gamenglam-server/internal/module/employee/services"
 )
 
-type RoleHandler struct {
-	svc services.RoleService
+type SectionHandler struct {
+	svc services.SectionService
 }
 
-func NewRoleHandler(svc services.RoleService) *RoleHandler {
-	return &RoleHandler{svc: svc}
+func NewSectionHandler(svc services.SectionService) *SectionHandler {
+	return &SectionHandler{svc: svc}
 }
 
-func (h *RoleHandler) FindAll(c *gin.Context) {
+func (h *SectionHandler) FindAll(c *gin.Context) {
 	datas, err := h.svc.FindAll(c.Request.Context())
 	if err != nil {
 		ErrorResponse(c, http.StatusInternalServerError, "An internal server error occurred.")
@@ -29,7 +29,7 @@ func (h *RoleHandler) FindAll(c *gin.Context) {
 	SuccessResponse(c, datas, "Records retrieved successfully.")
 }
 
-func (h *RoleHandler) FindOne(c *gin.Context) {
+func (h *SectionHandler) FindOne(c *gin.Context) {
 	Id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		ErrorResponse(c, http.StatusBadRequest, "Invalid ID provided.")
@@ -38,7 +38,7 @@ func (h *RoleHandler) FindOne(c *gin.Context) {
 
 	data, err := h.svc.FindOne(c.Request.Context(), Id)
 	if err != nil {
-		if errors.Is(err, services.ErrRoleNotFound) {
+		if errors.Is(err, services.ErrSectionNotFound) {
 			ErrorResponse(c, http.StatusNotFound, "Record not found.")
 			return
 		}
@@ -49,8 +49,8 @@ func (h *RoleHandler) FindOne(c *gin.Context) {
 	SuccessResponse(c, data, "Record retrieved successfully.")
 }
 
-func (h *RoleHandler) Create(c *gin.Context) {
-	var req models.CreateRoleRequest
+func (h *SectionHandler) Create(c *gin.Context) {
+	var req models.CreateSectionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		ErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
@@ -69,14 +69,14 @@ func (h *RoleHandler) Create(c *gin.Context) {
 	})
 }
 
-func (h *RoleHandler) Update(c *gin.Context) {
+func (h *SectionHandler) Update(c *gin.Context) {
 	Id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		ErrorResponse(c, http.StatusBadRequest, "Invalid ID provided.")
 		return
 	}
 
-	var req models.UpdateRoleRequest
+	var req models.UpdateSectionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		ErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
@@ -84,7 +84,7 @@ func (h *RoleHandler) Update(c *gin.Context) {
 
 	data, err := h.svc.Update(c.Request.Context(), Id, &req)
 	if err != nil {
-		if errors.Is(err, services.ErrRoleNotFound) {
+		if errors.Is(err, services.ErrSectionNotFound) {
 			ErrorResponse(c, http.StatusNotFound, "Record not found.")
 			return
 		}
@@ -95,7 +95,7 @@ func (h *RoleHandler) Update(c *gin.Context) {
 	SuccessResponse(c, data, "Record updated successfully.")
 }
 
-func (h *RoleHandler) Delete(c *gin.Context) {
+func (h *SectionHandler) Delete(c *gin.Context) {
 	Id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		ErrorResponse(c, http.StatusBadRequest, "Invalid ID provided.")
@@ -103,7 +103,7 @@ func (h *RoleHandler) Delete(c *gin.Context) {
 	}
 
 	if err := h.svc.Delete(c.Request.Context(), Id); err != nil {
-		if errors.Is(err, services.ErrRoleNotFound) {
+		if errors.Is(err, services.ErrSectionNotFound) {
 			ErrorResponse(c, http.StatusNotFound, "Record not found.")
 			return
 		}
