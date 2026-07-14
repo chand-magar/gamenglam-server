@@ -113,3 +113,19 @@ func (h *ProductVariantHandler) Delete(c *gin.Context) {
 
 	SuccessResponse(c, nil, "Record deleted successfully.")
 }
+
+func (h *ProductVariantHandler) FindByProductId(c *gin.Context) {
+	Id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		ErrorResponse(c, http.StatusBadRequest, "Invalid ID provided.")
+		return
+	}
+
+	datas, err := h.svc.FindByProductId(c.Request.Context(), Id)
+	if err != nil {
+		ErrorResponse(c, http.StatusInternalServerError, "An internal server error occurred.")
+		return
+	}
+
+	SuccessResponse(c, datas, "Records retrieved successfully.")
+}

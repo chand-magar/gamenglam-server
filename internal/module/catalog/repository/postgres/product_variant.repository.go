@@ -288,61 +288,47 @@ func (r *productVariantRepository) Modify(ctx context.Context, Id uuid.UUID, req
 		return nil, fmt.Errorf("productVariantRepository.Modify: lock row: %w", err)
 	}
 
-	query := `
+	var pv models.ProductVariant
+	err = tx.QueryRow(ctx, `
 		UPDATE product.product_variants
 		SET
-			product_no     = $1,
-			sku            = COALESCE(NULLIF($2, ''), sku),
-			price_override = $3,
-			stock_qty      = $4,
-			weight_kg      = $5,
-			image_url      = $6,
-			status         = $7,
+			sku            = COALESCE(NULLIF($1, ''), sku),
+			price_override = $2,
+			stock_qty      = $3,
+			weight_kg      = $4,
+			image_url      = $5,
+			status         = CASE WHEN $6::text = '' THEN status ELSE $6::product.product_status_enum END,
 			updated_at     = NOW(),
-			updated_by     = $8
-		WHERE variant_id = $9
+			updated_by     = $7
+		WHERE variant_id = $8
 		RETURNING
-			variant_no,
-			variant_id,
-			product_no,
-			sku,
-			price_override,
-			stock_qty,
-			weight_kg,
-			image_url,
-			status,
-			created_at,
-			created_by,
-			updated_at,
-			updated_by
-	`
-
-	var d models.ProductVariant
-
-	err = tx.QueryRow(ctx, query,
-		req.ProductNo,
+			variant_no, variant_id, product_no,
+			sku, price_override, stock_qty, weight_kg,
+			image_url, status, created_at, created_by,
+			updated_at, updated_by
+	`,
 		req.SKU,
 		req.PriceOverride,
 		req.StockQty,
 		req.WeightKg,
 		req.ImageURL,
-		req.Status,
+		string(req.Status),
 		req.UpdatedBy,
 		Id,
 	).Scan(
-		&d.VariantNo,
-		&d.VariantId,
-		&d.ProductNo,
-		&d.SKU,
-		&d.PriceOverride,
-		&d.StockQty,
-		&d.WeightKg,
-		&d.ImageURL,
-		&d.Status,
-		&d.CreatedAt,
-		&d.CreatedBy,
-		&d.UpdatedAt,
-		&d.UpdatedBy,
+		&pv.VariantNo,
+		&pv.VariantId,
+		&pv.ProductNo,
+		&pv.SKU,
+		&pv.PriceOverride,
+		&pv.StockQty,
+		&pv.WeightKg,
+		&pv.ImageURL,
+		&pv.Status,
+		&pv.CreatedAt,
+		&pv.CreatedBy,
+		&pv.UpdatedAt,
+		&pv.UpdatedBy,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("productVariantRepository.Modify: update: %w", err)
@@ -352,7 +338,7 @@ func (r *productVariantRepository) Modify(ctx context.Context, Id uuid.UUID, req
 		return nil, fmt.Errorf("productVariantRepository.Modify: commit: %w", err)
 	}
 
-	return &d, nil
+	return &pv, nil
 }
 
 func (r *productVariantRepository) Remove(ctx context.Context, Id uuid.UUID) error {
@@ -395,4 +381,63 @@ func (r *productVariantRepository) Remove(ctx context.Context, Id uuid.UUID) err
 	}
 
 	return nil
+}
+
+func (r *productVariantRepository) GetByProductId(ctx context.Context, productId uuid.UUID) ([]models.ProductVariant, error) {
+	query := `
+		SELECT
+			pv.variant_no,
+			pv.variant_id,
+			pv.product_no,
+			pv.sku,
+			pv.price_override,
+			pv.stock_qty,
+			pv.weight_kg,
+			pv.image_url,
+			pv.status,
+			pv.created_at,
+			pv.created_by,
+			pv.updated_at,
+			pv.updated_by
+		FROM product.product_variants pv
+		JOIN product.products p ON p.product_no = pv.product_no
+		WHERE p.product_id = $1
+		AND pv.status != 'D'
+		ORDER BY pv.created_at ASC
+	`
+
+	rows, err := r.db.Query(ctx, query, productId)
+	if err != nil {
+		return nil, fmt.Errorf("productVariantRepository.GetByProductId: %w", err)
+	}
+	defer rows.Close()
+
+	var data []models.ProductVariant
+	for rows.Next() {
+		var d models.ProductVariant
+		if err := rows.Scan(
+			&d.VariantNo,
+			&d.VariantId,
+			&d.ProductNo,
+			&d.SKU,
+			&d.PriceOverride,
+			&d.StockQty,
+			&d.WeightKg,
+			&d.ImageURL,
+			&d.Status,
+			&d.CreatedAt,
+			&d.CreatedBy,
+			&d.UpdatedAt,
+			&d.UpdatedBy,
+		); err != nil {
+			return nil, fmt.Errorf("productVariantRepository.GetByProductId: scan: %w", err)
+		}
+		data = append(data, d)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("productVariantRepository.GetByProductId: rows: %w", err)
+	}
+
+	return data, nil
 }

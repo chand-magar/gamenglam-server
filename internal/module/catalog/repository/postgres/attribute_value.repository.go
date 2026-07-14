@@ -317,3 +317,58 @@ func (r *attributeValueRepository) Remove(ctx context.Context, Id uuid.UUID) err
 
 	return nil
 }
+
+func (r *attributeValueRepository) GetByAttributeId(ctx context.Context, attributeId uuid.UUID) ([]models.AttributeValue, error) {
+	query := `
+		SELECT
+			av.attribute_value_no,
+			av.attribute_value_id,
+			av.attribute_no,
+			av.value,
+			av.display_label,
+			av.color_hex,
+			av.sort_order,
+			av.created_at,
+			av.created_by,
+			av.updated_at,
+			av.updated_by
+		FROM product.attribute_values av
+		JOIN product.attributes a ON a.attribute_no = av.attribute_no
+		WHERE a.attribute_id = $1
+		AND av.status != 'D'
+		ORDER BY av.sort_order ASC, av.created_at DESC
+	`
+
+	rows, err := r.db.Query(ctx, query, attributeId)
+	if err != nil {
+		return nil, fmt.Errorf("attributeValueRepository.GetByAttributeId: %w", err)
+	}
+	defer rows.Close()
+
+	var data []models.AttributeValue
+	for rows.Next() {
+		var d models.AttributeValue
+		if err := rows.Scan(
+			&d.AttributeValueNo,
+			&d.AttributeValueId,
+			&d.AttributeNo,
+			&d.Value,
+			&d.DisplayLabel,
+			&d.ColorHex,
+			&d.SortOrder,
+			&d.CreatedAt,
+			&d.CreatedBy,
+			&d.UpdatedAt,
+			&d.UpdatedBy,
+		); err != nil {
+			return nil, fmt.Errorf("attributeValueRepository.GetByAttributeId: scan: %w", err)
+		}
+		data = append(data, d)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("attributeValueRepository.GetByAttributeId: rows: %w", err)
+	}
+
+	return data, nil
+}

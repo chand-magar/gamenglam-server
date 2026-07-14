@@ -19,32 +19,31 @@ type Module struct {
 	AttributeValueHandler        *controllers.AttributeValueHandler
 	VariantAttributeValueHandler *controllers.VariantAttributeValueHandler
 
-	// exposed for cross-module adapter
 	productVariantService services.ProductVariantService
 }
 
 func NewModule(db *pgxpool.Pool) *Module {
-	categoryRepo    := postgres.NewCategoryRepository(db)
+	categoryRepo := postgres.NewCategoryRepository(db)
 	categoryService := services.NewCategoryService(categoryRepo)
 	categoryHandler := controllers.NewCategoryHandler(categoryService)
 
-	productRepo    := postgres.NewProductRepository(db)
+	productRepo := postgres.NewProductRepository(db)
 	productService := services.NewProductService(productRepo)
 	productHandler := controllers.NewProductHandler(productService)
 
-	productVariantRepo    := postgres.NewProductVariantRepository(db)
+	productVariantRepo := postgres.NewProductVariantRepository(db)
 	productVariantService := services.NewProductVariantService(productVariantRepo)
 	productVariantHandler := controllers.NewProductVariantHandler(productVariantService)
 
-	attributeRepo    := postgres.NewAttributeRepository(db)
+	attributeRepo := postgres.NewAttributeRepository(db)
 	attributeService := services.NewAttributeService(attributeRepo)
 	attributeHandler := controllers.NewAttributeHandler(attributeService)
 
-	attributeValueRepo    := postgres.NewAttributeValueRepository(db)
+	attributeValueRepo := postgres.NewAttributeValueRepository(db)
 	attributeValueService := services.NewAttributeValueService(attributeValueRepo)
 	attributeValueHandler := controllers.NewAttributeValueHandler(attributeValueService)
 
-	variantAttributeValueRepo    := postgres.NewVariantAttributeValueRepository(db)
+	variantAttributeValueRepo := postgres.NewVariantAttributeValueRepository(db)
 	variantAttributeValueService := services.NewVariantAttributeValueService(variantAttributeValueRepo)
 	variantAttributeValueHandler := controllers.NewVariantAttributeValueHandler(variantAttributeValueService)
 
@@ -61,9 +60,9 @@ func NewModule(db *pgxpool.Pool) *Module {
 
 func (m *Module) RegisterRoutes(rg *gin.RouterGroup) {
 	routes.CategoryRoutes(rg, m.CategoryHandler)
-	routes.ProductRoutes(rg, m.ProductHandler)
-	routes.ProductVariantRoutes(rg, m.ProductVariantHandler)
-	routes.AttributeRoutes(rg, m.AttributeHandler)
+	routes.ProductRoutes(rg, m.ProductHandler, m.ProductVariantHandler)
+	routes.ProductVariantRoutes(rg, m.ProductVariantHandler, m.VariantAttributeValueHandler)
+	routes.AttributeRoutes(rg, m.AttributeHandler, m.AttributeValueHandler)
 	routes.AttributeValueRoutes(rg, m.AttributeValueHandler)
 	routes.VariantAttributeValueRoutes(rg, m.VariantAttributeValueHandler)
 }

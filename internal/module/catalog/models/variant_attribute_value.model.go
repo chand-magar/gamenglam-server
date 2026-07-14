@@ -22,10 +22,10 @@ type CreateVariantAttributeValueRequest struct {
 }
 
 type UpdateVariantAttributeValueRequest struct {
-	VariantNo        uint32  `json:"variant_no"         binding:"required"`
-	AttributeValueNo uint32  `json:"attribute_value_no" binding:"required"`
-	Status        ProductStatus `json:"status"`
-	UpdatedBy     *uint32       `json:"updated_by"`
+	VariantNo        uint32        `json:"variant_no"         binding:"omitempty"` // removed required
+	AttributeValueNo uint32        `json:"attribute_value_no" binding:"omitempty"` // removed required
+	Status           ProductStatus `json:"status"`
+	UpdatedBy        *uint32       `json:"updated_by"`
 }
 
 type DeleteVariantAttributeValueRequest struct {

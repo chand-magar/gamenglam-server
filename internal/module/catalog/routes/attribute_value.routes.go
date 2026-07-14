@@ -7,12 +7,12 @@ import (
 )
 
 func AttributeValueRoutes(rg *gin.RouterGroup, h *controllers.AttributeValueHandler) {
-	attributeValues := rg.Group("/attribute-value")
+	attributeValues := rg.Group("/attribute-values")
 	{
-		attributeValues.GET("",        h.FindAll)
-		attributeValues.GET("/:id",    h.FindOne)
-		attributeValues.POST("",       h.Create)
-		attributeValues.PUT("/:id",    h.Update)
+		attributeValues.GET("", h.FindAll)
+		attributeValues.GET("/:id", h.FindOne)
+		attributeValues.POST("", h.Create)
+		attributeValues.PUT("/:id", h.Update)
 		attributeValues.DELETE("/:id", h.Delete)
 	}
 }

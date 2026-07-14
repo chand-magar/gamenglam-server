@@ -78,3 +78,12 @@ func (s *variantAttributeValueService) Delete(ctx context.Context, Id uuid.UUID)
 
 	return nil
 }
+
+func (s *variantAttributeValueService) FindByVariantId(ctx context.Context, variantId uuid.UUID) ([]models.VariantAttributeValue, error) {
+	data, err := s.repo.GetByVariantId(ctx, variantId)
+	if err != nil {
+		log.Printf("variantAttributeValueService.FindByVariantId error: %v", err)
+		return nil, fmt.Errorf("variantAttributeValueService.FindByVariantId: %w", err)
+	}
+	return data, nil
+}

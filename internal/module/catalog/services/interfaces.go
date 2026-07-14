@@ -27,7 +27,8 @@ type ProductService interface {
 type ProductVariantService interface {
 	FindAll(ctx context.Context) ([]models.ProductVariant, error)
 	FindOne(ctx context.Context, Id uuid.UUID) (*models.ProductVariant, error)
-	FindOneByNo(ctx context.Context, variantNo uint32) (*models.EnrichedVariant, error) // new
+	FindOneByNo(ctx context.Context, variantNo uint32) (*models.EnrichedVariant, error)
+	FindByProductId(ctx context.Context, productId uuid.UUID) ([]models.ProductVariant, error)
 	Create(ctx context.Context, req *models.CreateProductVariantRequest) (*models.ProductVariant, error)
 	Update(ctx context.Context, Id uuid.UUID, req *models.UpdateProductVariantRequest) (*models.ProductVariant, error)
 	Delete(ctx context.Context, Id uuid.UUID) error
@@ -44,6 +45,7 @@ type AttributeService interface {
 type AttributeValueService interface {
 	FindAll(ctx context.Context) ([]models.AttributeValue, error)
 	FindOne(ctx context.Context, Id uuid.UUID) (*models.AttributeValue, error)
+	FindByAttributeId(ctx context.Context, Id uuid.UUID) ([]models.AttributeValue, error)
 	Create(ctx context.Context, req *models.CreateAttributeValueRequest) (*models.AttributeValue, error)
 	Update(ctx context.Context, Id uuid.UUID, req *models.UpdateAttributeValueRequest) (*models.AttributeValue, error)
 	Delete(ctx context.Context, Id uuid.UUID) error
@@ -52,6 +54,7 @@ type AttributeValueService interface {
 type VariantAttributeValueService interface {
 	FindAll(ctx context.Context) ([]models.VariantAttributeValue, error)
 	FindOne(ctx context.Context, Id uuid.UUID) (*models.VariantAttributeValue, error)
+	FindByVariantId(ctx context.Context, variantId uuid.UUID) ([]models.VariantAttributeValue, error)
 	Create(ctx context.Context, req *models.CreateVariantAttributeValueRequest) (*models.VariantAttributeValue, error)
 	Delete(ctx context.Context, Id uuid.UUID) error
 }

@@ -16,6 +16,7 @@ type Attribute struct {
 	IsRequired    bool          `json:"is_required"`
 	IsVariant     bool          `json:"is_variant"`
 	SortOrder     int32         `json:"sort_order"`
+	Status        StatusEnum    `json:"status"`
 	CreatedAt     time.Time     `json:"created_at"`
 	CreatedBy     *uint32       `json:"created_by"`
 	UpdatedAt     time.Time     `json:"updated_at"`

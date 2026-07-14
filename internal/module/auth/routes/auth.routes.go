@@ -10,6 +10,7 @@ func AuthRoutes(rg *gin.RouterGroup, h *controllers.AuthHandler) {
 	auth := rg.Group("/auth")
 	{
 		auth.POST("/login", h.Login)
+		auth.POST("/refresh-token", h.RefreshToken) // new
 		auth.POST("/forgot-password", h.ForgotPassword)
 		auth.POST("/verify-otp", h.VerifyOTP)
 		auth.POST("/reset-password", h.ResetPassword)

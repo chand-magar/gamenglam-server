@@ -113,3 +113,45 @@ func (h *AttributeValueHandler) Delete(c *gin.Context) {
 
 	SuccessResponse(c, nil, "Record deleted successfully.")
 }
+
+func (h *AttributeValueHandler) FindByAttributeId(c *gin.Context) {
+	Id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		ErrorResponse(c, http.StatusBadRequest, "Invalid ID provided.")
+		return
+	}
+
+	datas, err := h.svc.FindByAttributeId(c.Request.Context(), Id)
+	if err != nil {
+		ErrorResponse(c, http.StatusInternalServerError, "An internal server error occurred.")
+		return
+	}
+
+	SuccessResponse(c, datas, "Records retrieved successfully.")
+}
+
+func (h *AttributeValueHandler) CreateForAttribute(c *gin.Context) {
+	_, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		ErrorResponse(c, http.StatusBadRequest, "Invalid ID provided.")
+		return
+	}
+
+	var req models.CreateAttributeValueRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	data, err := h.svc.Create(c.Request.Context(), &req)
+	if err != nil {
+		ErrorResponse(c, http.StatusInternalServerError, "Failed to create the record.")
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"success": true,
+		"message": "Record created successfully.",
+		"data":    data,
+	})
+}

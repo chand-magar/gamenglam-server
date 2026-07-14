@@ -21,11 +21,24 @@ import (
 )
 
 var (
-	ErrInvalidCredentials = errors.New("invalid username or password")
-	ErrUserNotActive      = errors.New("user account is not active")
-	ErrInvalidOTP         = errors.New("invalid or expired OTP")
-	ErrInvalidPassword    = errors.New("current password is incorrect")
-	ErrUserNotFound       = errors.New("user not found")
+	ErrInvalidCredentials  = errors.New("invalid username or password")
+	ErrUserNotActive       = errors.New("user account is not active")
+	ErrInvalidOTP          = errors.New("invalid or expired OTP")
+	ErrInvalidPassword     = errors.New("current password is incorrect")
+	ErrUserNotFound        = errors.New("user not found")
+	ErrInvalidRefreshToken = errors.New("invalid or expired refresh token") // new
+)
+
+const (
+	accessTokenExpiry  = 24 * time.Hour
+	refreshTokenExpiry = 7 * 24 * time.Hour
+)
+
+type tokenType string
+
+const (
+	tokenTypeAccess  tokenType = "access"
+	tokenTypeRefresh tokenType = "refresh"
 )
 
 // ── OTP store — in-memory with mutex ─────────────────────────────────────────
@@ -84,15 +97,21 @@ func (s *authService) Login(ctx context.Context, req *models.LoginRequest) (*mod
 		return nil, ErrUserNotActive
 	}
 
-	token, err := generateJWT(user)
+	accessToken, err := generateAccessToken(user)
 	if err != nil {
-		return nil, fmt.Errorf("authService.Login: generate token: %w", err)
+		return nil, fmt.Errorf("authService.Login: generate access token: %w", err)
+	}
+
+	refreshToken, err := generateRefreshToken(user)
+	if err != nil {
+		return nil, fmt.Errorf("authService.Login: generate refresh token: %w", err)
 	}
 
 	return &models.LoginResponse{
-		AccessToken: token,
-		TokenType:   "Bearer",
-		User:        user,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		TokenType:    "Bearer",
+		User:         user,
 	}, nil
 }
 
@@ -228,11 +247,11 @@ func (s *authService) getUserByProfileNo(ctx context.Context, profileNo uint32) 
 }
 
 // ── JWT ───────────────────────────────────────────────────────────────────────
-
 type jwtClaims struct {
 	ProfileId uuid.UUID `json:"profile_id"`
 	ProfileNo uint32    `json:"profile_no"`
 	RoleNo    uint32    `json:"role_no"`
+	TokenType tokenType `json:"token_type"`
 	jwt.RegisteredClaims
 }
 
@@ -299,4 +318,110 @@ func sendOTPEmail(toEmail, fullName, otp string) error {
 	}
 
 	return nil
+}
+
+func generateAccessToken(user *models.User) (string, error) {
+	return generateToken(user, tokenTypeAccess, accessTokenExpiry)
+}
+
+func generateRefreshToken(user *models.User) (string, error) {
+	return generateToken(user, tokenTypeRefresh, refreshTokenExpiry)
+}
+
+func generateToken(user *models.User, tt tokenType, expiry time.Duration) (string, error) {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		secret = "changeme-use-env-in-production"
+	}
+
+	claims := jwtClaims{
+		ProfileId: user.ProfileId,
+		ProfileNo: user.ProfileNo,
+		RoleNo:    user.RoleNo,
+		TokenType: tt,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiry)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Subject:   user.ProfileId.String(),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(secret))
+}
+
+func parseToken(tokenStr string) (jwt.MapClaims, error) {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		secret = "changeme-use-env-in-production"
+	}
+
+	token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("unexpected signing method")
+		}
+		return []byte(secret), nil
+	})
+	if err != nil || !token.Valid {
+		return nil, errors.New("invalid token")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, errors.New("invalid claims")
+	}
+
+	return claims, nil
+}
+
+func (s *authService) RefreshToken(ctx context.Context, req *models.RefreshTokenRequest) (*models.RefreshTokenResponse, error) {
+	claims, err := parseToken(req.RefreshToken)
+	if err != nil {
+		return nil, ErrInvalidRefreshToken
+	}
+
+	// Ensure this is a refresh token, not an access token
+	tt, ok := claims["token_type"].(string)
+	if !ok || tt != string(tokenTypeRefresh) {
+		return nil, ErrInvalidRefreshToken
+	}
+
+	profileIdStr, ok := claims["profile_id"].(string)
+	if !ok {
+		return nil, ErrInvalidRefreshToken
+	}
+
+	profileId, err := uuid.Parse(profileIdStr)
+	if err != nil {
+		return nil, ErrInvalidRefreshToken
+	}
+
+	user, err := s.userRepo.GetByProfileId(ctx, profileId)
+	if err != nil {
+		return nil, fmt.Errorf("authService.RefreshToken: %w", err)
+	}
+	if user == nil {
+		return nil, ErrUserNotFound
+	}
+
+	if user.Status != models.StatusActive {
+		return nil, ErrUserNotActive
+	}
+
+	accessToken, err := generateAccessToken(user)
+	if err != nil {
+		return nil, fmt.Errorf("authService.RefreshToken: generate access token: %w", err)
+	}
+
+	// Rotate refresh token — issue a new one each time
+	newRefreshToken, err := generateRefreshToken(user)
+	if err != nil {
+		return nil, fmt.Errorf("authService.RefreshToken: generate refresh token: %w", err)
+	}
+
+	return &models.RefreshTokenResponse{
+		AccessToken:  accessToken,
+		RefreshToken: newRefreshToken,
+		TokenType:    "Bearer",
+	}, nil
 }

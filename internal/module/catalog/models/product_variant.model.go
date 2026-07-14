@@ -33,13 +33,13 @@ type CreateProductVariantRequest struct {
 }
 
 type UpdateProductVariantRequest struct {
-	ProductNo     uint32        `json:"product_no"     binding:"required"`
+	ProductNo     uint32        `json:"product_no"     binding:"omitempty"`
 	SKU           string        `json:"sku"            binding:"required,min=2,max=100"`
 	PriceOverride *float64      `json:"price_override" binding:"omitempty,gt=0"`
 	StockQty      int32         `json:"stock_qty"      binding:"min=0"`
 	WeightKg      *float64      `json:"weight_kg"      binding:"omitempty,gt=0"`
 	ImageURL      *string       `json:"image_url"      binding:"omitempty,max=512"`
-	Status        ProductStatus `json:"status"`
+	Status        ProductStatus `json:"status"         binding:"omitempty"`
 	UpdatedBy     *uint32       `json:"updated_by"`
 }
 

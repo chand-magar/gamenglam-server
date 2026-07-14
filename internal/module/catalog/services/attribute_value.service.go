@@ -30,7 +30,6 @@ func (s *attributeValueService) FindAll(ctx context.Context) ([]models.Attribute
 		log.Printf("attributeValueService.FindAll error: %v", err)
 		return nil, fmt.Errorf("attributeValueService.FindAll: %w", err)
 	}
-
 	return data, nil
 }
 
@@ -43,7 +42,15 @@ func (s *attributeValueService) FindOne(ctx context.Context, Id uuid.UUID) (*mod
 	if data == nil {
 		return nil, ErrAttributeValueNotFound
 	}
+	return data, nil
+}
 
+func (s *attributeValueService) FindByAttributeId(ctx context.Context, Id uuid.UUID) ([]models.AttributeValue, error) {
+	data, err := s.repo.GetByAttributeId(ctx, Id)
+	if err != nil {
+		log.Printf("attributeValueService.FindByAttributeId error: %v", err)
+		return nil, fmt.Errorf("attributeValueService.FindByAttributeId: %w", err)
+	}
 	return data, nil
 }
 
@@ -62,7 +69,6 @@ func (s *attributeValueService) Create(ctx context.Context, req *models.CreateAt
 	if err != nil {
 		return nil, fmt.Errorf("attributeValueService.Create: %w", err)
 	}
-
 	return created, nil
 }
 
@@ -79,7 +85,6 @@ func (s *attributeValueService) Update(ctx context.Context, Id uuid.UUID, req *m
 	if err != nil {
 		return nil, fmt.Errorf("attributeValueService.Update: %w", err)
 	}
-
 	return updated, nil
 }
 
@@ -95,6 +100,5 @@ func (s *attributeValueService) Delete(ctx context.Context, Id uuid.UUID) error 
 	if err := s.repo.Remove(ctx, Id); err != nil {
 		return fmt.Errorf("attributeValueService.Delete: %w", err)
 	}
-
 	return nil
 }

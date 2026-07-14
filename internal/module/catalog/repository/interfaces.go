@@ -28,6 +28,7 @@ type ProductVariantRepository interface {
 	GetAll(ctx context.Context) ([]models.ProductVariant, error)
 	GetById(ctx context.Context, Id uuid.UUID) (*models.ProductVariant, error)
 	FindOneByNo(ctx context.Context, variantNo uint32) (*models.EnrichedVariant, error)
+	GetByProductId(ctx context.Context, productId uuid.UUID) ([]models.ProductVariant, error)
 	Save(ctx context.Context, product_variant *models.ProductVariant) (*models.ProductVariant, error)
 	Modify(ctx context.Context, Id uuid.UUID, req *models.UpdateProductVariantRequest) (*models.ProductVariant, error)
 	Remove(ctx context.Context, Id uuid.UUID) error
@@ -44,6 +45,7 @@ type AttributeRepository interface {
 type AttributeValueRepository interface {
 	GetAll(ctx context.Context) ([]models.AttributeValue, error)
 	GetById(ctx context.Context, Id uuid.UUID) (*models.AttributeValue, error)
+	GetByAttributeId(ctx context.Context, attributeId uuid.UUID) ([]models.AttributeValue, error)
 	Save(ctx context.Context, attributeValue *models.AttributeValue) (*models.AttributeValue, error)
 	Modify(ctx context.Context, Id uuid.UUID, req *models.UpdateAttributeValueRequest) (*models.AttributeValue, error)
 	Remove(ctx context.Context, Id uuid.UUID) error
@@ -52,6 +54,7 @@ type AttributeValueRepository interface {
 type VariantAttributeValueRepository interface {
 	GetAll(ctx context.Context) ([]models.VariantAttributeValue, error)
 	GetById(ctx context.Context, Id uuid.UUID) (*models.VariantAttributeValue, error)
+	GetByVariantId(ctx context.Context, variantId uuid.UUID) ([]models.VariantAttributeValue, error)
 	Save(ctx context.Context, variantAttributeValue *models.VariantAttributeValue) (*models.VariantAttributeValue, error)
 	Remove(ctx context.Context, Id uuid.UUID) error
 }

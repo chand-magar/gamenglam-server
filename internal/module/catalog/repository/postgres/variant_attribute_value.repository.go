@@ -193,3 +193,47 @@ func (r *variantAttributeValueRepository) Remove(ctx context.Context, Id uuid.UU
 
 	return nil
 }
+
+func (r *variantAttributeValueRepository) GetByVariantId(ctx context.Context, variantId uuid.UUID) ([]models.VariantAttributeValue, error) {
+	query := `
+		SELECT
+			vav.variant_attribute_value_no,
+			vav.variant_attribute_value_id,
+			vav.variant_no,
+			vav.attribute_value_no,
+			vav.created_at,
+			vav.created_by
+		FROM product.variant_attribute_values vav
+		JOIN product.product_variants pv ON pv.variant_no = vav.variant_no
+		WHERE pv.variant_id = $1
+		ORDER BY vav.attribute_value_no ASC
+	`
+
+	rows, err := r.db.Query(ctx, query, variantId)
+	if err != nil {
+		return nil, fmt.Errorf("variantAttributeValueRepository.GetByVariantId: %w", err)
+	}
+	defer rows.Close()
+
+	var data []models.VariantAttributeValue
+	for rows.Next() {
+		var d models.VariantAttributeValue
+		if err := rows.Scan(
+			&d.VariantAttributeValueNo,
+			&d.VariantAttributeValueId,
+			&d.VariantNo,
+			&d.AttributeValueNo,
+			&d.CreatedAt,
+			&d.CreatedBy,
+		); err != nil {
+			return nil, fmt.Errorf("variantAttributeValueRepository.GetByVariantId: scan: %w", err)
+		}
+		data = append(data, d)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("variantAttributeValueRepository.GetByVariantId: rows: %w", err)
+	}
+
+	return data, nil
+}

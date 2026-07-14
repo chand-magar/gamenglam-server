@@ -159,10 +159,40 @@ func extractProfileIdFromToken(c *gin.Context) (uuid.UUID, error) {
 		return uuid.Nil, errors.New("invalid claims")
 	}
 
+	// Reject refresh tokens on protected endpoints
+	if tt, ok := claims["token_type"].(string); !ok || tt != "access" {
+		return uuid.Nil, errors.New("access token required")
+	}
+
 	profileIdStr, ok := claims["profile_id"].(string)
 	if !ok {
 		return uuid.Nil, errors.New("profile_id not in claims")
 	}
 
 	return uuid.Parse(profileIdStr)
+}
+
+func (h *AuthHandler) RefreshToken(c *gin.Context) {
+	var req models.RefreshTokenRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	resp, err := h.svc.RefreshToken(c.Request.Context(), &req)
+	if err != nil {
+		switch {
+		case errors.Is(err, services.ErrInvalidRefreshToken):
+			ErrorResponse(c, http.StatusUnauthorized, "Invalid or expired refresh token.")
+		case errors.Is(err, services.ErrUserNotActive):
+			ErrorResponse(c, http.StatusForbidden, "Account is inactive.")
+		case errors.Is(err, services.ErrUserNotFound):
+			ErrorResponse(c, http.StatusNotFound, "User not found.")
+		default:
+			ErrorResponse(c, http.StatusInternalServerError, "An internal server error occurred.")
+		}
+		return
+	}
+
+	SuccessResponse(c, resp, "Token refreshed successfully.")
 }

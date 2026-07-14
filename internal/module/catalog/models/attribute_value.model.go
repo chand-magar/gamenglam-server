@@ -30,7 +30,7 @@ type CreateAttributeValueRequest struct {
 }
 
 type UpdateAttributeValueRequest struct {
-	AttributeNo  uint32  `json:"attribute_no"  binding:"required"`
+	AttributeNo  uint32  `json:"attribute_no"  binding:"omitempty"`
 	Value        string  `json:"value"         binding:"required,min=1,max=255"`
 	DisplayLabel string  `json:"display_label" binding:"required,min=1,max=255"`
 	ColorHex     *string `json:"color_hex"     binding:"omitempty,len=7"`

@@ -43,33 +43,36 @@ type Credentials struct {
 }
 
 // ── Request / Response ────────────────────────────────────────────────────────
-
 type LoginRequest struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
 }
-
 type LoginResponse struct {
-	AccessToken string `json:"access_token"`
-	TokenType   string `json:"token_type"`
-	User        *User  `json:"user"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	TokenType    string `json:"token_type"`
+	User         *User  `json:"user"`
 }
-
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+type RefreshTokenResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	TokenType    string `json:"token_type"`
+}
 type ForgotPasswordRequest struct {
 	EmailId string `json:"email_id" binding:"required,email"`
 }
-
 type VerifyOTPRequest struct {
 	EmailId string `json:"email_id" binding:"required,email"`
 	OTP     string `json:"otp"      binding:"required,len=6"`
 }
-
 type ResetPasswordRequest struct {
 	EmailId     string `json:"email_id"     binding:"required,email"`
 	OTP         string `json:"otp"          binding:"required,len=6"`
 	NewPassword string `json:"new_password" binding:"required,min=8"`
 }
-
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"current_password" binding:"required"`
 	NewPassword     string `json:"new_password"     binding:"required,min=8"`

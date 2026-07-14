@@ -109,3 +109,12 @@ func (s *productVariantService) Delete(ctx context.Context, Id uuid.UUID) error 
 
 	return nil
 }
+
+func (s *productVariantService) FindByProductId(ctx context.Context, productId uuid.UUID) ([]models.ProductVariant, error) {
+	data, err := s.repo.GetByProductId(ctx, productId)
+	if err != nil {
+		log.Printf("productVariantService.FindByProductId error: %v", err)
+		return nil, fmt.Errorf("productVariantService.FindByProductId: %w", err)
+	}
+	return data, nil
+}

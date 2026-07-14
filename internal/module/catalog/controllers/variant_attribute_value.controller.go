@@ -49,6 +49,22 @@ func (h *VariantAttributeValueHandler) FindOne(c *gin.Context) {
 	SuccessResponse(c, data, "Record retrieved successfully.")
 }
 
+func (h *VariantAttributeValueHandler) FindByVariantId(c *gin.Context) {
+	Id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		ErrorResponse(c, http.StatusBadRequest, "Invalid ID provided.")
+		return
+	}
+
+	datas, err := h.svc.FindByVariantId(c.Request.Context(), Id)
+	if err != nil {
+		ErrorResponse(c, http.StatusInternalServerError, "An internal server error occurred.")
+		return
+	}
+
+	SuccessResponse(c, datas, "Records retrieved successfully.")
+}
+
 func (h *VariantAttributeValueHandler) Create(c *gin.Context) {
 	var req models.CreateVariantAttributeValueRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
