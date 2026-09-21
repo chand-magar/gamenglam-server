@@ -22,6 +22,42 @@ func NewOrderRepository(db *pgxpool.Pool) repository.OrderRepository {
 	return &orderRepository{db: db}
 }
 
+func (r *orderRepository) GetAll(ctx context.Context) ([]models.Order, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT
+			order_no, order_id, customer_no, address_no,
+			order_ref, subtotal, discount, tax,
+			delivery_fee, total, order_status, notes,
+			created_at, updated_at
+		FROM orders.orders
+		ORDER BY created_at DESC
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("orderRepository.GetAll: %w", err)
+	}
+	defer rows.Close()
+
+	var data []models.Order
+	for rows.Next() {
+		var d models.Order
+		if err := rows.Scan(
+			&d.OrderNo, &d.OrderId, &d.CustomerNo, &d.AddressNo,
+			&d.OrderRef, &d.Subtotal, &d.Discount, &d.Tax,
+			&d.DeliveryFee, &d.Total, &d.OrderStatus, &d.Notes,
+			&d.CreatedAt, &d.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("orderRepository.GetAll: scan: %w", err)
+		}
+		data = append(data, d)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("orderRepository.GetAll: rows: %w", err)
+	}
+
+	return data, nil
+}
+
 func scanOrder(row pgx.Row) (*models.Order, error) {
 	var o models.Order
 	err := row.Scan(
@@ -100,7 +136,7 @@ func (r *orderRepository) Save(ctx context.Context, order *models.Order) (*model
 
 		// Decrement stock atomically — same transaction
 		result, err := tx.Exec(ctx, `
-			UPDATE product.product_variants
+			UPDATE catalog.product_variants
 			SET stock_qty = stock_qty - $1, updated_at = NOW()
 			WHERE variant_no = $2 AND stock_qty >= $1
 		`, item.Quantity, item.VariantNo)
@@ -130,8 +166,8 @@ func (r *orderRepository) Save(ctx context.Context, order *models.Order) (*model
 	return &o, nil
 }
 
-func (r *orderRepository) GetAll(ctx context.Context, customerId uuid.UUID) ([]models.Order, error) {
-	query := `
+func (r *orderRepository) GetByCustomerId(ctx context.Context, customerId uuid.UUID) ([]models.Order, error) {
+	rows, err := r.db.Query(ctx, `
 		SELECT
 			o.order_no, o.order_id, o.customer_no, o.address_no,
 			o.order_ref, o.subtotal, o.discount, o.tax,
@@ -141,29 +177,28 @@ func (r *orderRepository) GetAll(ctx context.Context, customerId uuid.UUID) ([]m
 		JOIN customer.customers cu ON cu.customer_no = o.customer_no
 		WHERE cu.customer_id = $1
 		ORDER BY o.created_at DESC
-	`
-	rows, err := r.db.Query(ctx, query, customerId)
+	`, customerId)
 	if err != nil {
-		return nil, fmt.Errorf("orderRepository.GetAll: %w", err)
+		return nil, fmt.Errorf("orderRepository.GetByCustomerId: %w", err)
 	}
 	defer rows.Close()
 
-	var orders []models.Order
+	var data []models.Order
 	for rows.Next() {
-		var o models.Order
+		var d models.Order
 		if err := rows.Scan(
-			&o.OrderNo, &o.OrderId, &o.CustomerNo, &o.AddressNo,
-			&o.OrderRef, &o.Subtotal, &o.Discount, &o.Tax,
-			&o.DeliveryFee, &o.Total, &o.OrderStatus, &o.Notes,
-			&o.CreatedAt, &o.UpdatedAt,
+			&d.OrderNo, &d.OrderId, &d.CustomerNo, &d.AddressNo,
+			&d.OrderRef, &d.Subtotal, &d.Discount, &d.Tax,
+			&d.DeliveryFee, &d.Total, &d.OrderStatus, &d.Notes,
+			&d.CreatedAt, &d.UpdatedAt,
 		); err != nil {
-			return nil, fmt.Errorf("orderRepository.GetAll: scan: %w", err)
+			return nil, fmt.Errorf("orderRepository.GetByCustomerId: scan: %w", err)
 		}
-		orders = append(orders, o)
+		data = append(data, d)
 	}
-
-	return orders, rows.Err()
+	return data, rows.Err()
 }
+
 func (r *orderRepository) GetById(ctx context.Context, orderId uuid.UUID) (*models.Order, error) {
 	o, err := scanOrder(r.db.QueryRow(ctx, `
 		SELECT

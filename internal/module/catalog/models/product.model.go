@@ -6,45 +6,59 @@ import (
 	"github.com/google/uuid"
 )
 
-type Product struct {
-	ProductNo   uint32        `json:"product_no"`
-	ProductId   uuid.UUID     `json:"product_id"`
-	CategoryNo  uint32        `json:"category_no"`
-	SKU         string        `json:"sku"`
-	ProductName string        `json:"product_name"`
-	Slug        string        `json:"slug"`
-	Description string        `json:"description"`
-	BasePrice   float64       `json:"base_price"`
-	Status      ProductStatus `json:"status"`
-	IsFeatured  bool          `json:"is_featured"`
-	StockQty    int32         `json:"stock_qty"`
-	CreatedAt   time.Time     `json:"created_at"`
-	CreatedBy   *uint32       `json:"created_by"`
-	UpdatedAt   time.Time     `json:"updated_at"`
-	UpdatedBy   *uint32       `json:"updated_by"`
+type SpecItem struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
+type Product struct {
+	ProductNo      uint32        `json:"-"`
+	ProductId      uuid.UUID     `json:"product_id"`
+	CategoryNo     uint32        `json:"-"`
+	CategoryId     *uuid.UUID    `json:"category_id,omitempty"`
+	SKU            string        `json:"sku"`
+	ProductName    string        `json:"product_name"`
+	Slug           string        `json:"slug"`
+	Description    *string       `json:"description"`
+	ImageURL       *string       `json:"image_url"`
+	Features       []string      `json:"features"`
+	Specifications []SpecItem    `json:"specifications"`
+	Status         ProductStatus `json:"status"`
+	IsFeatured     bool          `json:"is_featured"`
+	CreatedAt      time.Time     `json:"created_at"`
+	CreatedBy      *uint32       `json:"-"`
+	UpdatedAt      time.Time     `json:"updated_at"`
+	UpdatedBy      *uint32       `json:"-"`
+	// Default variant fields — populated from cheapest active variant
+	DefaultVariantId    *uuid.UUID `json:"default_variant_id,omitempty"`
+	DefaultSellingPrice *float64   `json:"default_selling_price,omitempty"`
+	DefaultMRP          *float64   `json:"default_mrp,omitempty"`
+	DefaultStockQty     *int32     `json:"default_stock_qty,omitempty"`
+}
 type CreateProductRequest struct {
-	CategoryNo  uint32  `json:"category_no"  binding:"required"`
-	SKU         string  `json:"sku"          binding:"required,min=2,max=100"`
-	ProductName string  `json:"product_name" binding:"required,min=2,max=255"`
-	Slug        string  `json:"slug"         binding:"required,min=2,max=255"`
-	Description string  `json:"description"`
-	BasePrice   float64 `json:"base_price"   binding:"required,gt=0"`
-	IsFeatured  bool    `json:"is_featured"`
-	StockQty    int32   `json:"stock_qty"    binding:"min=0"`
-	CreatedBy   *uint32 `json:"created_by"`
+	ProductId      uuid.UUID  `json:"-"`
+	CategoryId     uuid.UUID  `json:"category_id"  binding:"required"` // ← UUID
+	SKU            string     `json:"sku"           binding:"required,min=2,max=100"`
+	ProductName    string     `json:"product_name"  binding:"required,min=2,max=255"`
+	Slug           string     `json:"slug"          binding:"required,min=2,max=255"`
+	Description    *string    `json:"description"   binding:"omitempty"`
+	ImageURL       *string    `json:"image_url"     binding:"omitempty,max=512"`
+	Features       []string   `json:"features"`
+	Specifications []SpecItem `json:"specifications"`
+	IsFeatured     bool       `json:"is_featured"`
+	CreatedBy      *uint32    `json:"-"`
 }
 
 type UpdateProductRequest struct {
-	CategoryNo  uint32  `json:"category_no"  binding:"required"`
-	SKU         string  `json:"sku"          binding:"required,min=2,max=100"`
-	ProductName string  `json:"product_name" binding:"required,min=2,max=255"`
-	Slug        string  `json:"slug"         binding:"required,min=2,max=255"`
-	Description string  `json:"description"`
-	BasePrice   float64 `json:"base_price"   binding:"required,gt=0"`
-	IsFeatured  bool    `json:"is_featured"`
-	StockQty    int32   `json:"stock_qty"    binding:"min=0"`
-	Status      ProductStatus `json:"status"`
-	UpdatedBy   *uint32 `json:"updated_by"`
+	CategoryId     uuid.UUID     `json:"category_id"   binding:"required"` // ← UUID
+	SKU            string        `json:"sku"            binding:"required,min=2,max=100"`
+	ProductName    string        `json:"product_name"   binding:"required,min=2,max=255"`
+	Slug           string        `json:"slug"           binding:"required,min=2,max=255"`
+	Description    *string       `json:"description"    binding:"omitempty"`
+	ImageURL       *string       `json:"image_url"      binding:"omitempty,max=512"`
+	Features       []string      `json:"features"`
+	Specifications []SpecItem    `json:"specifications"`
+	Status         ProductStatus `json:"status"         binding:"omitempty"`
+	IsFeatured     bool          `json:"is_featured"`
+	UpdatedBy      *uint32       `json:"-"`
 }

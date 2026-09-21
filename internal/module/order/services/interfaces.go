@@ -8,12 +8,10 @@ import (
 	"github.com/chand-magar/gamenglam-server/internal/module/order/models"
 )
 
-// CatalogProvider — what order needs from catalog module
 type CatalogProvider interface {
-	GetVariantByNo(ctx context.Context, variantNo uint32) (*CatalogVariant, error)
+	GetVariantById(ctx context.Context, variantId uuid.UUID) (*CatalogVariant, error)
 }
 
-// CatalogVariant — order's local type, never imports catalog models directly
 type CatalogVariant struct {
 	VariantNo   uint32
 	ProductName string
@@ -23,12 +21,11 @@ type CatalogVariant struct {
 	StockQty    int
 }
 
-// CustomerProvider — what order needs from customer module
 type CustomerProvider interface {
 	GetAddressByNo(ctx context.Context, addressNo uint32) (*CustomerAddress, error)
+	GetAddressByID(ctx context.Context, addressId uuid.UUID) (*CustomerAddress, error)
 }
 
-// CustomerAddress — order's local type
 type CustomerAddress struct {
 	AddressNo    uint32
 	AddressLine1 string
@@ -48,6 +45,7 @@ type CartService interface {
 }
 
 type OrderService interface {
+	FindAll(ctx context.Context) ([]models.Order, error)
 	PlaceOrder(ctx context.Context, req *models.PlaceOrderRequest) (*models.Order, error)
 	GetOrders(ctx context.Context, customerId uuid.UUID) ([]models.Order, error)
 	GetOrder(ctx context.Context, orderId uuid.UUID) (*models.Order, error)

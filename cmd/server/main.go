@@ -45,7 +45,7 @@ func main() {
 	engine := gin.Default()
 
 	engine.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowOrigins:     []string{"http://localhost:3000", "http://localhost:3001"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -53,7 +53,11 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	routes.SetupRouter(engine, db) // was: routes.SetupRouter(router, db)
+	engine.MaxMultipartMemory = 32 << 20 // 32MB
+
+	routes.SetupRouter(engine, db, cfg.BaseURL)
+
+	engine.Static("/uploads", "./uploads")
 
 	addr := fmt.Sprintf(":%s", cfg.HTTPServer.Port)
 	srv := &http.Server{

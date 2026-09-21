@@ -32,7 +32,7 @@ func (r *variantAttributeValueRepository) GetAll(ctx context.Context) ([]models.
 			attribute_value_no,
 			created_at,
 			created_by
-		FROM product.variant_attribute_values
+		FROM catalog.variant_attribute_values
 		ORDER BY created_at DESC
 	`
 
@@ -76,7 +76,7 @@ func (r *variantAttributeValueRepository) GetById(ctx context.Context, Id uuid.U
 			attribute_value_no,
 			created_at,
 			created_by
-		FROM product.variant_attribute_values
+		FROM catalog.variant_attribute_values
 		WHERE variant_attribute_value_id = $1
 	`
 
@@ -114,7 +114,7 @@ func (r *variantAttributeValueRepository) Save(ctx context.Context, vav *models.
 	}()
 
 	query := `
-		INSERT INTO product.variant_attribute_values (
+		INSERT INTO catalog.variant_attribute_values (
 			variant_attribute_value_id,
 			variant_no,
 			attribute_value_no,
@@ -168,7 +168,7 @@ func (r *variantAttributeValueRepository) Remove(ctx context.Context, Id uuid.UU
 
 	var lockedNo uint32
 	err = tx.QueryRow(ctx, `
-		SELECT variant_attribute_value_no FROM product.variant_attribute_values
+		SELECT variant_attribute_value_no FROM catalog.variant_attribute_values
 		WHERE variant_attribute_value_id = $1
 		FOR UPDATE
 	`, Id).Scan(&lockedNo)
@@ -180,7 +180,7 @@ func (r *variantAttributeValueRepository) Remove(ctx context.Context, Id uuid.UU
 	}
 
 	_, err = tx.Exec(ctx, `
-		DELETE FROM product.variant_attribute_values
+		DELETE FROM catalog.variant_attribute_values
 		WHERE variant_attribute_value_id = $1
 	`, Id)
 	if err != nil {
@@ -203,8 +203,8 @@ func (r *variantAttributeValueRepository) GetByVariantId(ctx context.Context, va
 			vav.attribute_value_no,
 			vav.created_at,
 			vav.created_by
-		FROM product.variant_attribute_values vav
-		JOIN product.product_variants pv ON pv.variant_no = vav.variant_no
+		FROM catalog.variant_attribute_values vav
+		JOIN catalog.product_variants pv ON pv.variant_no = vav.variant_no
 		WHERE pv.variant_id = $1
 		ORDER BY vav.attribute_value_no ASC
 	`
@@ -236,4 +236,16 @@ func (r *variantAttributeValueRepository) GetByVariantId(ctx context.Context, va
 	}
 
 	return data, nil
+}
+
+func (r *variantAttributeValueRepository) GetAttributeValueNoById(ctx context.Context, attributeValueId uuid.UUID) (uint32, error) {
+	var valueNo uint32
+	err := r.db.QueryRow(ctx, `
+		SELECT attribute_value_no FROM catalog.attribute_values
+		WHERE attribute_value_id = $1 AND status != 'D'
+	`, attributeValueId).Scan(&valueNo)
+	if err != nil {
+		return 0, fmt.Errorf("variantAttributeValueRepository.GetAttributeValueNoById: %w", err)
+	}
+	return valueNo, nil
 }

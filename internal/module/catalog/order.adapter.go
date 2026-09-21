@@ -3,25 +3,28 @@ package catalog
 import (
 	"context"
 
-	orderservices "github.com/chand-magar/gamenglam-server/internal/module/order/services"
+	"github.com/google/uuid"
+
 	"github.com/chand-magar/gamenglam-server/internal/module/catalog/services"
+	orderservices "github.com/chand-magar/gamenglam-server/internal/module/order/services"
 )
 
 type catalogAdapter struct {
 	svc services.ProductVariantService
 }
 
-func (a *catalogAdapter) GetVariantByNo(ctx context.Context, variantNo uint32) (*orderservices.CatalogVariant, error) {
-	variant, err := a.svc.FindOneByNo(ctx, variantNo)
-	if err != nil || variant == nil {
+// GetVariantById — used by order service
+func (a *catalogAdapter) GetVariantById(ctx context.Context, variantId uuid.UUID) (*orderservices.CatalogVariant, error) {
+	enriched, err := a.svc.FindOneById(ctx, variantId)
+	if err != nil || enriched == nil {
 		return nil, err
 	}
 	return &orderservices.CatalogVariant{
-		VariantNo:   variant.VariantNo,
-		ProductName: variant.ProductName,
-		SKU:         variant.SKU,
-		Attributes:  variant.Attributes,
-		Price:       variant.Price,
-		StockQty:    int(variant.StockQty),
+		VariantNo:   enriched.VariantNo,
+		ProductName: enriched.ProductName,
+		SKU:         enriched.SKU,
+		Attributes:  enriched.Attributes,
+		Price:       enriched.Price,
+		StockQty:    int(enriched.StockQty),
 	}, nil
 }

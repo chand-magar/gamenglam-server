@@ -19,6 +19,17 @@ func NewOrderHandler(svc services.OrderService) *OrderHandler {
 	return &OrderHandler{svc: svc}
 }
 
+// GET /api/v1/orders
+func (h *OrderHandler) FindAll(c *gin.Context) {
+	orders, err := h.svc.FindAll(c.Request.Context())
+	if err != nil {
+		ErrorResponse(c, http.StatusInternalServerError, "An internal server error occurred.")
+		return
+	}
+	SuccessResponse(c, orders, "Records retrieved successfully.")
+}
+
+// POST /api/v1/orders
 func (h *OrderHandler) PlaceOrder(c *gin.Context) {
 	var req models.PlaceOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -48,10 +59,11 @@ func (h *OrderHandler) PlaceOrder(c *gin.Context) {
 	})
 }
 
+// GET /api/v1/orders/customer/:id
 func (h *OrderHandler) GetOrders(c *gin.Context) {
-	customerId, err := uuid.Parse(c.Param("customer_id"))
+	customerId, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		ErrorResponse(c, http.StatusBadRequest, "Invalid customer_id.")
+		ErrorResponse(c, http.StatusBadRequest, "Invalid customer ID.")
 		return
 	}
 
@@ -64,10 +76,11 @@ func (h *OrderHandler) GetOrders(c *gin.Context) {
 	SuccessResponse(c, orders, "Records retrieved successfully.")
 }
 
+// GET /api/v1/orders/:id
 func (h *OrderHandler) GetOrder(c *gin.Context) {
-	orderId, err := uuid.Parse(c.Param("order_id"))
+	orderId, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		ErrorResponse(c, http.StatusBadRequest, "Invalid order_id.")
+		ErrorResponse(c, http.StatusBadRequest, "Invalid order ID.")
 		return
 	}
 
@@ -84,10 +97,11 @@ func (h *OrderHandler) GetOrder(c *gin.Context) {
 	SuccessResponse(c, order, "Record retrieved successfully.")
 }
 
+// PUT /api/v1/orders/:id/status
 func (h *OrderHandler) UpdateStatus(c *gin.Context) {
-	orderId, err := uuid.Parse(c.Param("order_id"))
+	orderId, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		ErrorResponse(c, http.StatusBadRequest, "Invalid order_id.")
+		ErrorResponse(c, http.StatusBadRequest, "Invalid order ID.")
 		return
 	}
 
@@ -110,15 +124,14 @@ func (h *OrderHandler) UpdateStatus(c *gin.Context) {
 	SuccessResponse(c, order, "Record updated successfully.")
 }
 
+// GET /api/v1/orders/:id/history
 func (h *OrderHandler) GetStatusHistory(c *gin.Context) {
-	
-	orderId, err := uuid.Parse(c.Param("order_id"))
+	orderId, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		ErrorResponse(c, http.StatusBadRequest, "Invalid order_id.")
+		ErrorResponse(c, http.StatusBadRequest, "Invalid order ID.")
 		return
 	}
 
-	// Fetch order first to get order_no
 	order, err := h.svc.GetOrder(c.Request.Context(), orderId)
 	if err != nil || order == nil {
 		ErrorResponse(c, http.StatusNotFound, "Order not found.")

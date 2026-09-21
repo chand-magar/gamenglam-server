@@ -18,22 +18,26 @@ type Module struct {
 	AttributeHandler             *controllers.AttributeHandler
 	AttributeValueHandler        *controllers.AttributeValueHandler
 	VariantAttributeValueHandler *controllers.VariantAttributeValueHandler
-
-	productVariantService services.ProductVariantService
+	VariantImageHandler          *controllers.VariantImageHandler
+	productVariantService        services.ProductVariantService
 }
 
-func NewModule(db *pgxpool.Pool) *Module {
+func NewModule(db *pgxpool.Pool, baseURL string) *Module {
 	categoryRepo := postgres.NewCategoryRepository(db)
 	categoryService := services.NewCategoryService(categoryRepo)
 	categoryHandler := controllers.NewCategoryHandler(categoryService)
 
 	productRepo := postgres.NewProductRepository(db)
 	productService := services.NewProductService(productRepo)
-	productHandler := controllers.NewProductHandler(productService)
+	productHandler := controllers.NewProductHandler(productService, baseURL)
+
+	variantAttributeValueRepo := postgres.NewVariantAttributeValueRepository(db)
+	variantAttributeValueService := services.NewVariantAttributeValueService(variantAttributeValueRepo)
+	variantAttributeValueHandler := controllers.NewVariantAttributeValueHandler(variantAttributeValueService)
 
 	productVariantRepo := postgres.NewProductVariantRepository(db)
-	productVariantService := services.NewProductVariantService(productVariantRepo)
-	productVariantHandler := controllers.NewProductVariantHandler(productVariantService)
+	productVariantService := services.NewProductVariantService(productVariantRepo, variantAttributeValueRepo)
+	productVariantHandler := controllers.NewProductVariantHandler(productVariantService, variantAttributeValueService)
 
 	attributeRepo := postgres.NewAttributeRepository(db)
 	attributeService := services.NewAttributeService(attributeRepo)
@@ -43,9 +47,8 @@ func NewModule(db *pgxpool.Pool) *Module {
 	attributeValueService := services.NewAttributeValueService(attributeValueRepo)
 	attributeValueHandler := controllers.NewAttributeValueHandler(attributeValueService)
 
-	variantAttributeValueRepo := postgres.NewVariantAttributeValueRepository(db)
-	variantAttributeValueService := services.NewVariantAttributeValueService(variantAttributeValueRepo)
-	variantAttributeValueHandler := controllers.NewVariantAttributeValueHandler(variantAttributeValueService)
+	variantImageRepo := postgres.NewVariantImageRepository(db)
+	variantImageHandler := controllers.NewVariantImageHandler(variantImageRepo, baseURL) // ← pass baseURL
 
 	return &Module{
 		CategoryHandler:              categoryHandler,
@@ -54,6 +57,7 @@ func NewModule(db *pgxpool.Pool) *Module {
 		AttributeHandler:             attributeHandler,
 		AttributeValueHandler:        attributeValueHandler,
 		VariantAttributeValueHandler: variantAttributeValueHandler,
+		VariantImageHandler:          variantImageHandler,
 		productVariantService:        productVariantService,
 	}
 }
@@ -61,10 +65,11 @@ func NewModule(db *pgxpool.Pool) *Module {
 func (m *Module) RegisterRoutes(rg *gin.RouterGroup) {
 	routes.CategoryRoutes(rg, m.CategoryHandler)
 	routes.ProductRoutes(rg, m.ProductHandler, m.ProductVariantHandler)
-	routes.ProductVariantRoutes(rg, m.ProductVariantHandler, m.VariantAttributeValueHandler)
+	routes.ProductVariantRoutes(rg, m.ProductVariantHandler)
 	routes.AttributeRoutes(rg, m.AttributeHandler, m.AttributeValueHandler)
 	routes.AttributeValueRoutes(rg, m.AttributeValueHandler)
 	routes.VariantAttributeValueRoutes(rg, m.VariantAttributeValueHandler)
+	routes.VariantImageRoutes(rg, m.VariantImageHandler)
 }
 
 func (m *Module) AsCatalogProvider() orderservices.CatalogProvider {

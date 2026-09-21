@@ -49,26 +49,6 @@ func (h *AttributeValueHandler) FindOne(c *gin.Context) {
 	SuccessResponse(c, data, "Record retrieved successfully.")
 }
 
-func (h *AttributeValueHandler) Create(c *gin.Context) {
-	var req models.CreateAttributeValueRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorResponse(c, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	data, err := h.svc.Create(c.Request.Context(), &req)
-	if err != nil {
-		ErrorResponse(c, http.StatusInternalServerError, "Failed to create the record.")
-		return
-	}
-
-	c.JSON(http.StatusCreated, gin.H{
-		"success": true,
-		"message": "Record created successfully.",
-		"data":    data,
-	})
-}
-
 func (h *AttributeValueHandler) Update(c *gin.Context) {
 	Id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -131,12 +111,36 @@ func (h *AttributeValueHandler) FindByAttributeId(c *gin.Context) {
 }
 
 func (h *AttributeValueHandler) CreateForAttribute(c *gin.Context) {
-	_, err := uuid.Parse(c.Param("id"))
+	attributeId, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		ErrorResponse(c, http.StatusBadRequest, "Invalid ID provided.")
+		ErrorResponse(c, http.StatusBadRequest, "Invalid attribute ID.")
 		return
 	}
 
+	var req models.CreateAttributeValueRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Set attribute_id from URL — service will resolve attribute_no
+	req.AttributeId = attributeId
+
+	data, err := h.svc.Create(c.Request.Context(), &req)
+	if err != nil {
+		ErrorResponse(c, http.StatusInternalServerError, "Failed to create the record.")
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"success": true,
+		"message": "Record created successfully.",
+		"data":    data,
+	})
+}
+
+// POST /api/v1/attribute-values
+func (h *AttributeValueHandler) Create(c *gin.Context) {
 	var req models.CreateAttributeValueRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		ErrorResponse(c, http.StatusBadRequest, err.Error())

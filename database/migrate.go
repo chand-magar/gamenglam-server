@@ -17,11 +17,11 @@ func RunMigrations(db *pgxpool.Pool) error {
 		name string
 		fn   func(context.Context, *pgxpool.Pool) error
 	}{
-		{"create schema",    createSchema},
-		{"create enums",     createEnums},
-		{"create tables",    createTables},
+		{"create schema", createSchema},
+		{"create enums", createEnums},
+		{"create tables", createTables},
 		{"add foreign keys", addForeignKeys},
-		{"seed data",        seedData},
+		{"seed data", seedData},
 	}
 
 	for _, step := range steps {
@@ -41,7 +41,7 @@ func RunMigrations(db *pgxpool.Pool) error {
 func createSchema(ctx context.Context, db *pgxpool.Pool) error {
 	queries := []string{
 		`CREATE SCHEMA IF NOT EXISTS auth`,
-		`CREATE SCHEMA IF NOT EXISTS product`,
+		`CREATE SCHEMA IF NOT EXISTS catalog`,
 		`CREATE SCHEMA IF NOT EXISTS customer`,
 		`CREATE SCHEMA IF NOT EXISTS orders`,
 		`CREATE SCHEMA IF NOT EXISTS payment`,
@@ -72,21 +72,21 @@ func createEnums(ctx context.Context, db *pgxpool.Pool) error {
 				CREATE TYPE auth.status_enum AS ENUM ('A', 'I', 'D');
 			END IF;
 
-			-- product
+			-- catalog
 			IF NOT EXISTS (
 				SELECT 1 FROM pg_type t
 				JOIN pg_namespace n ON n.oid = t.typnamespace
-				WHERE t.typname = 'product_status_enum' AND n.nspname = 'product'
+				WHERE t.typname = 'product_status_enum' AND n.nspname = 'catalog'
 			) THEN
-				CREATE TYPE product.product_status_enum AS ENUM ('draft', 'active', 'archived', 'D');
+				CREATE TYPE catalog.product_status_enum AS ENUM ('draft', 'active', 'archived', 'D');
 			END IF;
 
 			IF NOT EXISTS (
 				SELECT 1 FROM pg_type t
 				JOIN pg_namespace n ON n.oid = t.typnamespace
-				WHERE t.typname = 'attribute_type_enum' AND n.nspname = 'product'
+				WHERE t.typname = 'attribute_type_enum' AND n.nspname = 'catalog'
 			) THEN
-				CREATE TYPE product.attribute_type_enum AS ENUM (
+				CREATE TYPE catalog.attribute_type_enum AS ENUM (
 					'select', 'multi_select', 'boolean', 'text', 'number', 'color'
 				);
 			END IF;
@@ -295,11 +295,11 @@ func createTables(ctx context.Context, db *pgxpool.Pool) error {
 			`,
 		},
 
-		// ── product schema ────────────────────────────────────────────────────
+		// ── catalog schema ────────────────────────────────────────────────────
 		{
-			name: "product.categories",
+			name: "catalog.categories",
 			query: `
-				CREATE TABLE IF NOT EXISTS product.categories (
+				CREATE TABLE IF NOT EXISTS catalog.categories (
 					category_no   SERIAL                   PRIMARY KEY,
 					category_id   UUID                     NOT NULL DEFAULT gen_random_uuid(),
 					parent_no     INTEGER                           DEFAULT NULL,
@@ -312,24 +312,25 @@ func createTables(ctx context.Context, db *pgxpool.Pool) error {
 					updated_at    TIMESTAMPTZ              NOT NULL DEFAULT NOW(),
 					updated_by    INTEGER                           DEFAULT NULL
 				);
-				CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_category_id ON product.categories(category_id);
-				CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_slug        ON product.categories(slug);
-				CREATE        INDEX IF NOT EXISTS idx_categories_parent_no   ON product.categories(parent_no);
-				CREATE        INDEX IF NOT EXISTS idx_categories_status      ON product.categories(status);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_category_id ON catalog.categories(category_id);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_slug        ON catalog.categories(slug);
+				CREATE        INDEX IF NOT EXISTS idx_categories_parent_no   ON catalog.categories(parent_no);
+				CREATE        INDEX IF NOT EXISTS idx_categories_status      ON catalog.categories(status);
 			`,
 		},
 		{
-			name: "product.attributes",
+			name: "catalog.attributes",
 			query: `
-				CREATE TABLE IF NOT EXISTS product.attributes (
+				CREATE TABLE IF NOT EXISTS catalog.attributes (
 					attribute_no   SERIAL                        PRIMARY KEY,
 					attribute_id   UUID                          NOT NULL DEFAULT gen_random_uuid(),
 					category_no    INTEGER                       NOT NULL,
 					attribute_name VARCHAR(100)                  NOT NULL,
 					code           VARCHAR(50)                   NOT NULL,
-					type           product.attribute_type_enum   NOT NULL,
+					type           catalog.attribute_type_enum   NOT NULL,
 					is_required    BOOLEAN                       NOT NULL DEFAULT FALSE,
 					is_variant     BOOLEAN                       NOT NULL DEFAULT FALSE,
+					show_in_filter BOOLEAN 						 NOT NULL DEFAULT FALSE,
 					sort_order     INTEGER                       NOT NULL DEFAULT 0,
 					status         auth.status_enum              NOT NULL DEFAULT 'A',
 					created_at     TIMESTAMPTZ                   NOT NULL DEFAULT NOW(),
@@ -337,17 +338,17 @@ func createTables(ctx context.Context, db *pgxpool.Pool) error {
 					updated_at     TIMESTAMPTZ                   NOT NULL DEFAULT NOW(),
 					updated_by     INTEGER                                DEFAULT NULL
 				);
-				CREATE UNIQUE INDEX IF NOT EXISTS idx_attributes_attribute_id ON product.attributes(attribute_id);
-				CREATE UNIQUE INDEX IF NOT EXISTS idx_attributes_code         ON product.attributes(code);
-				CREATE        INDEX IF NOT EXISTS idx_attributes_category_no  ON product.attributes(category_no);
-				CREATE        INDEX IF NOT EXISTS idx_attributes_is_variant   ON product.attributes(is_variant);
-				CREATE        INDEX IF NOT EXISTS idx_attributes_status       ON product.attributes(status);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_attributes_attribute_id ON catalog.attributes(attribute_id);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_attributes_code         ON catalog.attributes(code);
+				CREATE        INDEX IF NOT EXISTS idx_attributes_category_no  ON catalog.attributes(category_no);
+				CREATE        INDEX IF NOT EXISTS idx_attributes_is_variant   ON catalog.attributes(is_variant);
+				CREATE        INDEX IF NOT EXISTS idx_attributes_status       ON catalog.attributes(status);
 			`,
 		},
 		{
-			name: "product.attribute_values",
+			name: "catalog.attribute_values",
 			query: `
-				CREATE TABLE IF NOT EXISTS product.attribute_values (
+				CREATE TABLE IF NOT EXISTS catalog.attribute_values (
 					attribute_value_no SERIAL                PRIMARY KEY,
 					attribute_value_id UUID                  NOT NULL DEFAULT gen_random_uuid(),
 					attribute_no       INTEGER               NOT NULL,
@@ -361,68 +362,71 @@ func createTables(ctx context.Context, db *pgxpool.Pool) error {
 					updated_at         TIMESTAMPTZ           NOT NULL DEFAULT NOW(),
 					updated_by         INTEGER                        DEFAULT NULL
 				);
-				CREATE UNIQUE INDEX IF NOT EXISTS idx_attribute_values_id     ON product.attribute_values(attribute_value_id);
-				CREATE        INDEX IF NOT EXISTS idx_attribute_values_attr    ON product.attribute_values(attribute_no);
-				CREATE        INDEX IF NOT EXISTS idx_attribute_values_status  ON product.attribute_values(status);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_attribute_values_id     ON catalog.attribute_values(attribute_value_id);
+				CREATE        INDEX IF NOT EXISTS idx_attribute_values_attr    ON catalog.attribute_values(attribute_no);
+				CREATE        INDEX IF NOT EXISTS idx_attribute_values_status  ON catalog.attribute_values(status);
 			`,
 		},
 		{
-			name: "product.products",
+			name: "catalog.products",
 			query: `
-				CREATE TABLE IF NOT EXISTS product.products (
-					product_no   SERIAL                          PRIMARY KEY,
-					product_id   UUID                            NOT NULL DEFAULT gen_random_uuid(),
-					category_no  INTEGER                         NOT NULL,
-					sku          VARCHAR(100)                    NOT NULL,
-					product_name VARCHAR(255)                    NOT NULL,
-					slug         VARCHAR(255)                    NOT NULL,
-					description  TEXT                                     DEFAULT NULL,
-					base_price   NUMERIC(12,2)                   NOT NULL DEFAULT 0.00,
-					status       product.product_status_enum     NOT NULL DEFAULT 'draft',
-					is_featured  BOOLEAN                         NOT NULL DEFAULT FALSE,
-					stock_qty    INTEGER                         NOT NULL DEFAULT 0,
-					created_at   TIMESTAMPTZ                     NOT NULL DEFAULT NOW(),
-					created_by   INTEGER                                  DEFAULT NULL,
-					updated_at   TIMESTAMPTZ                     NOT NULL DEFAULT NOW(),
-					updated_by   INTEGER                                  DEFAULT NULL
+				CREATE TABLE IF NOT EXISTS catalog.products (
+					product_no     SERIAL                          PRIMARY KEY,
+					product_id     UUID                            NOT NULL DEFAULT gen_random_uuid(),
+					category_no    INTEGER                         NOT NULL,
+					sku            VARCHAR(100)                    NOT NULL,
+					product_name   VARCHAR(255)                    NOT NULL,
+					slug           VARCHAR(255)                    NOT NULL,
+					description    TEXT                                     DEFAULT NULL,
+					image_url      VARCHAR(512)                             DEFAULT NULL,
+					features       JSONB NOT NULL                            DEFAULT '[]',
+					specifications JSONB NOT NULL                            DEFAULT '[]',
+					status         catalog.product_status_enum     NOT NULL DEFAULT 'draft',
+					is_featured    BOOLEAN                         NOT NULL DEFAULT FALSE,
+					created_at     TIMESTAMPTZ                     NOT NULL DEFAULT NOW(),
+					created_by     INTEGER                                  DEFAULT NULL,
+					updated_at     TIMESTAMPTZ                     NOT NULL DEFAULT NOW(),
+					updated_by     INTEGER                                  DEFAULT NULL
 				);
-				CREATE UNIQUE INDEX IF NOT EXISTS idx_products_product_id  ON product.products(product_id);
-				CREATE UNIQUE INDEX IF NOT EXISTS idx_products_sku         ON product.products(sku);
-				CREATE UNIQUE INDEX IF NOT EXISTS idx_products_slug        ON product.products(slug);
-				CREATE        INDEX IF NOT EXISTS idx_products_category_no ON product.products(category_no);
-				CREATE        INDEX IF NOT EXISTS idx_products_status      ON product.products(status);
-				CREATE        INDEX IF NOT EXISTS idx_products_is_featured ON product.products(is_featured);
-				CREATE        INDEX IF NOT EXISTS idx_products_created_at  ON product.products(created_at);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_products_product_id  ON catalog.products(product_id);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_products_sku         ON catalog.products(sku);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_products_slug        ON catalog.products(slug);
+				CREATE        INDEX IF NOT EXISTS idx_products_category_no ON catalog.products(category_no);
+				CREATE        INDEX IF NOT EXISTS idx_products_status      ON catalog.products(status);
+				CREATE        INDEX IF NOT EXISTS idx_products_is_featured ON catalog.products(is_featured);
+				CREATE        INDEX IF NOT EXISTS idx_products_created_at  ON catalog.products(created_at);
 			`,
 		},
 		{
-			name: "product.product_variants",
+			name: "catalog.product_variants",
 			query: `
-				CREATE TABLE IF NOT EXISTS product.product_variants (
+				CREATE TABLE IF NOT EXISTS catalog.product_variants (
 					variant_no     SERIAL                        PRIMARY KEY,
 					variant_id     UUID                          NOT NULL DEFAULT gen_random_uuid(),
 					product_no     INTEGER                       NOT NULL,
 					sku            VARCHAR(100)                  NOT NULL,
-					price_override NUMERIC(12,2)                          DEFAULT NULL,
+					cost_price     NUMERIC(10,2) 						  DEFAULT NULL,
+					mrp            NUMERIC(10,2)                          DEFAULT NULL,
+					selling_price  NUMERIC(10,2) 						  DEFAULT NULL,
 					stock_qty      INTEGER                       NOT NULL DEFAULT 0,
 					weight_kg      NUMERIC(8,3)                           DEFAULT NULL,
 					image_url      VARCHAR(512)                           DEFAULT NULL,
-					status         product.product_status_enum   NOT NULL DEFAULT 'draft',
+					status         catalog.product_status_enum   NOT NULL DEFAULT 'draft',
 					created_at     TIMESTAMPTZ                   NOT NULL DEFAULT NOW(),
 					created_by     INTEGER                                DEFAULT NULL,
 					updated_at     TIMESTAMPTZ                   NOT NULL DEFAULT NOW(),
 					updated_by     INTEGER                                DEFAULT NULL
 				);
-				CREATE UNIQUE INDEX IF NOT EXISTS idx_product_variants_id         ON product.product_variants(variant_id);
-				CREATE UNIQUE INDEX IF NOT EXISTS idx_product_variants_sku        ON product.product_variants(sku);
-				CREATE        INDEX IF NOT EXISTS idx_product_variants_product_no ON product.product_variants(product_no);
-				CREATE        INDEX IF NOT EXISTS idx_product_variants_status     ON product.product_variants(status);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_product_variants_id         ON catalog.product_variants(variant_id);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_product_variants_sku        ON catalog.product_variants(sku);
+				CREATE        INDEX IF NOT EXISTS idx_product_variants_product_no ON catalog.product_variants(product_no);
+				CREATE        INDEX IF NOT EXISTS idx_product_variants_status     ON catalog.product_variants(status);
 			`,
 		},
 		{
-			name: "product.variant_attribute_values",
+			name: "catalog.variant_attribute_values",
 			query: `
-				CREATE TABLE IF NOT EXISTS product.variant_attribute_values (
+				CREATE TABLE IF NOT EXISTS catalog.variant_attribute_values (
 					variant_attribute_value_no SERIAL      PRIMARY KEY,
 					variant_attribute_value_id UUID        NOT NULL DEFAULT gen_random_uuid(),
 					variant_no                 INTEGER     NOT NULL,
@@ -431,13 +435,33 @@ func createTables(ctx context.Context, db *pgxpool.Pool) error {
 					created_by                 INTEGER              DEFAULT NULL
 				);
 				CREATE UNIQUE INDEX IF NOT EXISTS idx_vav_id
-					ON product.variant_attribute_values(variant_attribute_value_id);
+					ON catalog.variant_attribute_values(variant_attribute_value_id);
 				CREATE UNIQUE INDEX IF NOT EXISTS idx_vav_unique
-					ON product.variant_attribute_values(variant_no, attribute_value_no);
+					ON catalog.variant_attribute_values(variant_no, attribute_value_no);
 				CREATE        INDEX IF NOT EXISTS idx_vav_variant_no
-					ON product.variant_attribute_values(variant_no);
+					ON catalog.variant_attribute_values(variant_no);
 				CREATE        INDEX IF NOT EXISTS idx_vav_attribute_value_no
-					ON product.variant_attribute_values(attribute_value_no);
+					ON catalog.variant_attribute_values(attribute_value_no);
+			`,
+		},
+		{
+			name: "catalog.product_variant_images",
+			query: `
+				CREATE TABLE IF NOT EXISTS catalog.product_variant_images (
+					image_no   SERIAL        PRIMARY KEY,
+					image_id   UUID          NOT NULL DEFAULT gen_random_uuid(),
+					variant_no INTEGER       NOT NULL,
+					image_url  TEXT          NOT NULL,
+					sort_order INTEGER       NOT NULL DEFAULT 0,
+					is_primary BOOLEAN       NOT NULL DEFAULT FALSE,
+					created_at TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+				);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_variant_images_image_id
+					ON catalog.product_variant_images(image_id);
+				CREATE        INDEX IF NOT EXISTS idx_variant_images_variant_no
+					ON catalog.product_variant_images(variant_no);
+				CREATE        INDEX IF NOT EXISTS idx_variant_images_is_primary
+					ON catalog.product_variant_images(is_primary);
 			`,
 		},
 
@@ -862,7 +886,7 @@ func addForeignKeys(ctx context.Context, db *pgxpool.Pool) error {
 			`,
 		},
 
-		// ── product schema ────────────────────────────────────────────────────
+		// ── catalog schema ────────────────────────────────────────────────────
 		{
 			name: "fk_categories_parent_no",
 			query: `
@@ -871,9 +895,9 @@ func addForeignKeys(ctx context.Context, db *pgxpool.Pool) error {
 						SELECT 1 FROM information_schema.table_constraints
 						WHERE constraint_name = 'fk_categories_parent_no'
 					) THEN
-						ALTER TABLE product.categories
+						ALTER TABLE catalog.categories
 						ADD CONSTRAINT fk_categories_parent_no
-						FOREIGN KEY (parent_no) REFERENCES product.categories(category_no)
+						FOREIGN KEY (parent_no) REFERENCES catalog.categories(category_no)
 						ON UPDATE CASCADE ON DELETE SET NULL;
 					END IF;
 				END $$;
@@ -887,9 +911,9 @@ func addForeignKeys(ctx context.Context, db *pgxpool.Pool) error {
 						SELECT 1 FROM information_schema.table_constraints
 						WHERE constraint_name = 'fk_attributes_category_no'
 					) THEN
-						ALTER TABLE product.attributes
+						ALTER TABLE catalog.attributes
 						ADD CONSTRAINT fk_attributes_category_no
-						FOREIGN KEY (category_no) REFERENCES product.categories(category_no)
+						FOREIGN KEY (category_no) REFERENCES catalog.categories(category_no)
 						ON DELETE CASCADE;
 					END IF;
 				END $$;
@@ -903,9 +927,9 @@ func addForeignKeys(ctx context.Context, db *pgxpool.Pool) error {
 						SELECT 1 FROM information_schema.table_constraints
 						WHERE constraint_name = 'fk_attribute_values_attribute_no'
 					) THEN
-						ALTER TABLE product.attribute_values
+						ALTER TABLE catalog.attribute_values
 						ADD CONSTRAINT fk_attribute_values_attribute_no
-						FOREIGN KEY (attribute_no) REFERENCES product.attributes(attribute_no)
+						FOREIGN KEY (attribute_no) REFERENCES catalog.attributes(attribute_no)
 						ON DELETE CASCADE;
 					END IF;
 				END $$;
@@ -919,9 +943,9 @@ func addForeignKeys(ctx context.Context, db *pgxpool.Pool) error {
 						SELECT 1 FROM information_schema.table_constraints
 						WHERE constraint_name = 'fk_products_category_no'
 					) THEN
-						ALTER TABLE product.products
+						ALTER TABLE catalog.products
 						ADD CONSTRAINT fk_products_category_no
-						FOREIGN KEY (category_no) REFERENCES product.categories(category_no)
+						FOREIGN KEY (category_no) REFERENCES catalog.categories(category_no)
 						ON DELETE RESTRICT;
 					END IF;
 				END $$;
@@ -935,9 +959,9 @@ func addForeignKeys(ctx context.Context, db *pgxpool.Pool) error {
 						SELECT 1 FROM information_schema.table_constraints
 						WHERE constraint_name = 'fk_product_variants_product_no'
 					) THEN
-						ALTER TABLE product.product_variants
+						ALTER TABLE catalog.product_variants
 						ADD CONSTRAINT fk_product_variants_product_no
-						FOREIGN KEY (product_no) REFERENCES product.products(product_no)
+						FOREIGN KEY (product_no) REFERENCES catalog.products(product_no)
 						ON DELETE CASCADE;
 					END IF;
 				END $$;
@@ -951,9 +975,9 @@ func addForeignKeys(ctx context.Context, db *pgxpool.Pool) error {
 						SELECT 1 FROM information_schema.table_constraints
 						WHERE constraint_name = 'fk_vav_variant_no'
 					) THEN
-						ALTER TABLE product.variant_attribute_values
+						ALTER TABLE catalog.variant_attribute_values
 						ADD CONSTRAINT fk_vav_variant_no
-						FOREIGN KEY (variant_no) REFERENCES product.product_variants(variant_no)
+						FOREIGN KEY (variant_no) REFERENCES catalog.product_variants(variant_no)
 						ON DELETE CASCADE;
 					END IF;
 				END $$;
@@ -967,9 +991,25 @@ func addForeignKeys(ctx context.Context, db *pgxpool.Pool) error {
 						SELECT 1 FROM information_schema.table_constraints
 						WHERE constraint_name = 'fk_vav_attribute_value_no'
 					) THEN
-						ALTER TABLE product.variant_attribute_values
+						ALTER TABLE catalog.variant_attribute_values
 						ADD CONSTRAINT fk_vav_attribute_value_no
-						FOREIGN KEY (attribute_value_no) REFERENCES product.attribute_values(attribute_value_no)
+						FOREIGN KEY (attribute_value_no) REFERENCES catalog.attribute_values(attribute_value_no)
+						ON DELETE CASCADE;
+					END IF;
+				END $$;
+			`,
+		},
+		{
+			name: "fk_variant_images_variant_no",
+			query: `
+				DO $$ BEGIN
+					IF NOT EXISTS (
+						SELECT 1 FROM information_schema.table_constraints
+						WHERE constraint_name = 'fk_variant_images_variant_no'
+					) THEN
+						ALTER TABLE catalog.product_variant_images
+						ADD CONSTRAINT fk_variant_images_variant_no
+						FOREIGN KEY (variant_no) REFERENCES catalog.product_variants(variant_no)
 						ON DELETE CASCADE;
 					END IF;
 				END $$;
@@ -1035,7 +1075,7 @@ func addForeignKeys(ctx context.Context, db *pgxpool.Pool) error {
 					) THEN
 						ALTER TABLE customer.wishlists
 						ADD CONSTRAINT fk_wishlists_product_no
-						FOREIGN KEY (product_no) REFERENCES product.products(product_no)
+						FOREIGN KEY (product_no) REFERENCES catalog.products(product_no)
 						ON DELETE CASCADE;
 					END IF;
 				END $$;
@@ -1326,7 +1366,7 @@ func seedData(ctx context.Context, db *pgxpool.Pool) error {
 		order int
 	}{
 		{"Webmasters", "webmasters", "fa-laptop", 1},
-		{"Employees",  "systems",    "fa-users",  2},
+		{"Employees", "systems", "fa-users", 2},
 	}
 
 	sectionNos := make([]int, len(sectionInputs))
@@ -1348,9 +1388,9 @@ func seedData(ctx context.Context, db *pgxpool.Pool) error {
 		path      string
 		order     int
 	}{
-		{sectionNos[0], "Sections",  "section",   1},
-		{sectionNos[0], "Pages",     "pages",     2},
-		{sectionNos[1], "Roles",     "roles",     1},
+		{sectionNos[0], "Sections", "section", 1},
+		{sectionNos[0], "Pages", "pages", 2},
+		{sectionNos[1], "Roles", "roles", 1},
 		{sectionNos[1], "Employees", "employees", 2},
 	}
 
@@ -1376,7 +1416,7 @@ func seedData(ctx context.Context, db *pgxpool.Pool) error {
 	}
 
 	// ── Admin Credentials ─────────────────────────────────────────────────────
-	hashed, err := bcrypt.GenerateFromPassword([]byte("Admin@123"), bcrypt.DefaultCost)
+	hashed, err := bcrypt.GenerateFromPassword([]byte("Khelaghar@786"), bcrypt.DefaultCost)
 	if err != nil {
 		return fmt.Errorf("seedData: hash password: %w", err)
 	}
@@ -1433,8 +1473,8 @@ func seedData(ctx context.Context, db *pgxpool.Pool) error {
 		},
 		{
 			"welcome", "email",
-			"Welcome to Fatafati!",
-			"Hi {{first_name}}, welcome to Fatafati! Your account has been created successfully.",
+			"Welcome to Game n Glam!",
+			"Hi {{first_name}}, welcome to Game n Glam! Your account has been created successfully.",
 		},
 	}
 

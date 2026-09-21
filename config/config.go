@@ -9,7 +9,7 @@ import (
 )
 
 type HTTPServer struct {
-	Port string `yaml:"port" env:"SERVER_PORT" env-default:"8000"`
+	Port string `yaml:"port" env:"SERVER_PORT" env-default:"8080"`
 }
 
 type Database struct {
@@ -24,6 +24,7 @@ type Database struct {
 type Config struct {
 	Env        string     `yaml:"env"      env:"ENV"      env-default:"production"`
 	GinMode    string     `yaml:"gin_mode" env:"GIN_MODE" env-default:"release"`
+	BaseURL    string     `yaml:"base_url"   env:"BASE_URL"   env-default:"http://localhost:8080"`
 	HTTPServer HTTPServer `yaml:"http_server"`
 	Database   Database   `yaml:"database"`
 }

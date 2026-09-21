@@ -22,14 +22,13 @@ func NewCartRepository(db *pgxpool.Pool) repository.CartRepository {
 }
 
 func (r *cartRepository) GetByCustomerId(ctx context.Context, customerId uuid.UUID) (*models.Cart, error) {
-	query := `
+	var c models.Cart
+	err := r.db.QueryRow(ctx, `
 		SELECT c.cart_no, c.cart_id, c.customer_no, c.created_at, c.updated_at
 		FROM orders.carts c
 		JOIN customer.customers cu ON cu.customer_no = c.customer_no
 		WHERE cu.customer_id = $1
-	`
-	var c models.Cart
-	err := r.db.QueryRow(ctx, query, customerId).Scan(
+	`, customerId).Scan(
 		&c.CartNo, &c.CartId, &c.CustomerNo, &c.CreatedAt, &c.UpdatedAt,
 	)
 	if err != nil {
@@ -42,13 +41,12 @@ func (r *cartRepository) GetByCustomerId(ctx context.Context, customerId uuid.UU
 }
 
 func (r *cartRepository) GetCartItem(ctx context.Context, cartNo uint32, variantNo uint32) (*models.CartItem, error) {
-	query := `
+	var ci models.CartItem
+	err := r.db.QueryRow(ctx, `
 		SELECT cart_item_no, cart_item_id, cart_no, variant_no, quantity, unit_price, created_at, updated_at
 		FROM orders.cart_items
 		WHERE cart_no = $1 AND variant_no = $2
-	`
-	var ci models.CartItem
-	err := r.db.QueryRow(ctx, query, cartNo, variantNo).Scan(
+	`, cartNo, variantNo).Scan(
 		&ci.CartItemNo, &ci.CartItemId, &ci.CartNo, &ci.VariantNo,
 		&ci.Quantity, &ci.UnitPrice, &ci.CreatedAt, &ci.UpdatedAt,
 	)
@@ -106,7 +104,6 @@ func (r *cartRepository) SaveCart(ctx context.Context, customerId uuid.UUID) (*m
 		}
 	}()
 
-	// Resolve customer_id → customer_no
 	var customerNo uint32
 	err = tx.QueryRow(ctx, `
 		SELECT customer_no FROM customer.customers
@@ -137,6 +134,7 @@ func (r *cartRepository) SaveCart(ctx context.Context, customerId uuid.UUID) (*m
 	return &c, nil
 }
 
+// AddItem — variantNo is resolved by the service from variant_id
 func (r *cartRepository) AddItem(ctx context.Context, cartNo uint32, req *models.AddCartItemRequest, unitPrice float64) (*models.CartItem, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
@@ -148,12 +146,22 @@ func (r *cartRepository) AddItem(ctx context.Context, cartNo uint32, req *models
 		}
 	}()
 
+	// Resolve variant_no from variant_id
+	var variantNo uint32
+	err = tx.QueryRow(ctx, `
+		SELECT variant_no FROM catalog.product_variants
+		WHERE variant_id = $1 AND status != 'D'
+	`, req.VariantId).Scan(&variantNo)
+	if err != nil {
+		return nil, fmt.Errorf("cartRepository.AddItem: resolve variant: %w", err)
+	}
+
 	var ci models.CartItem
 	err = tx.QueryRow(ctx, `
 		INSERT INTO orders.cart_items (cart_item_id, cart_no, variant_no, quantity, unit_price)
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING cart_item_no, cart_item_id, cart_no, variant_no, quantity, unit_price, created_at, updated_at
-	`, uuid.New(), cartNo, req.VariantNo, req.Quantity, unitPrice).Scan(
+	`, uuid.New(), cartNo, variantNo, req.Quantity, unitPrice).Scan(
 		&ci.CartItemNo, &ci.CartItemId, &ci.CartNo, &ci.VariantNo,
 		&ci.Quantity, &ci.UnitPrice, &ci.CreatedAt, &ci.UpdatedAt,
 	)

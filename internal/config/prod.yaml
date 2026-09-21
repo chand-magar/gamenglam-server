@@ -1,13 +1,15 @@
 env: "dev"
 GIN_MODE: "release"
 
+BASE_URL: "http://localhost:8080"
+
 http_server:
-  port: "8000"
+  port: "8080"
 
 database:
   host: "localhost"
   port: "5430"
   user: "root"
   password: "F@tAfaT1!#2026"
-  name: "fatafati"
+  name: "gamenglam"
   ssl_mode: "disable"

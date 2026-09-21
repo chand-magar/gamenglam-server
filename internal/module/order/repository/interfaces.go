@@ -20,8 +20,9 @@ type CartRepository interface {
 }
 
 type OrderRepository interface {
+	GetAll(ctx context.Context) ([]models.Order, error) // ← ADD
 	Save(ctx context.Context, order *models.Order) (*models.Order, error)
-	GetAll(ctx context.Context, customerId uuid.UUID) ([]models.Order, error)
+	GetByCustomerId(ctx context.Context, customerId uuid.UUID) ([]models.Order, error) // ← RENAME from GetAll
 	GetById(ctx context.Context, orderId uuid.UUID) (*models.Order, error)
 	UpdateStatus(ctx context.Context, orderId uuid.UUID, req *models.UpdateOrderStatusRequest) (*models.Order, error)
 	GetStatusHistory(ctx context.Context, orderNo uint32) ([]models.OrderStatusHistory, error)

@@ -113,3 +113,20 @@ func (h *AttributeHandler) Delete(c *gin.Context) {
 
 	SuccessResponse(c, nil, "Record deleted successfully.")
 }
+
+// GET /api/v1/attributes/category/:id/values
+func (h *AttributeHandler) FindByCategoryWithValues(c *gin.Context) {
+	categoryId, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		ErrorResponse(c, http.StatusBadRequest, "Invalid category ID.")
+		return
+	}
+
+	data, err := h.svc.FindByCategoryWithValues(c.Request.Context(), categoryId)
+	if err != nil {
+		ErrorResponse(c, http.StatusInternalServerError, "An internal server error occurred.")
+		return
+	}
+
+	SuccessResponse(c, data, "Records retrieved successfully.")
+}

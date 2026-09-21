@@ -38,9 +38,18 @@ func NewOrderService(
 	}
 }
 
+func (s *orderService) FindAll(ctx context.Context) ([]models.Order, error) {
+	orders, err := s.repo.GetAll(ctx)
+	if err != nil {
+		log.Printf("orderService.FindAll error: %v", err)
+		return nil, fmt.Errorf("orderService.FindAll: %w", err)
+	}
+	return orders, nil
+}
+
 func (s *orderService) PlaceOrder(ctx context.Context, req *models.PlaceOrderRequest) (*models.Order, error) {
-	// ── Validate address ──────────────────────────────────────────────────────
-	address, err := s.customerProvider.GetAddressByNo(ctx, req.AddressNo)
+	// ── Validate address by UUID ──────────────────────────────────────────────
+	address, err := s.customerProvider.GetAddressByID(ctx, req.AddressId)
 	if err != nil {
 		return nil, fmt.Errorf("orderService.PlaceOrder: validate address: %w", err)
 	}
@@ -53,33 +62,39 @@ func (s *orderService) PlaceOrder(ctx context.Context, req *models.PlaceOrderReq
 	var subtotal float64
 
 	for _, item := range req.Items {
-		variant, err := s.catalogProvider.GetVariantByNo(ctx, item.VariantNo)
+		// Resolve variant by UUID — GetVariantById resolves to variant_no internally
+		variant, err := s.catalogProvider.GetVariantById(ctx, item.VariantId)
 		if err != nil {
 			return nil, fmt.Errorf("orderService.PlaceOrder: validate variant: %w", err)
 		}
 		if variant == nil {
 			return nil, ErrVariantNotFound
 		}
-		if variant.StockQty < item.Quantity {
+		if variant.StockQty < int(item.Quantity) {
 			return nil, ErrInsufficientStock
 		}
 
-		// Marshal attributes for snapshot
 		attributesJSON, err := json.Marshal(variant.Attributes)
 		if err != nil {
 			return nil, fmt.Errorf("orderService.PlaceOrder: marshal attributes: %w", err)
 		}
 
-		totalPrice := variant.Price * float64(item.Quantity)
+		// Use unit_price from request if provided, else use variant price
+		unitPrice := item.UnitPrice
+		if unitPrice == 0 {
+			unitPrice = variant.Price
+		}
+
+		totalPrice := unitPrice * float64(item.Quantity)
 		subtotal += totalPrice
 
 		orderItems = append(orderItems, models.OrderItem{
-			VariantNo:   item.VariantNo,
-			ProductName: variant.ProductName, // snapshot
-			SKU:         variant.SKU,         // snapshot
-			Attributes:  attributesJSON,      // snapshot
-			Quantity:    item.Quantity,
-			UnitPrice:   variant.Price,
+			VariantNo:   variant.VariantNo, // ← still store variant_no internally
+			ProductName: variant.ProductName,
+			SKU:         variant.SKU,
+			Attributes:  attributesJSON,
+			Quantity:    int(item.Quantity),
+			UnitPrice:   unitPrice,
 			TotalPrice:  totalPrice,
 		})
 	}
@@ -89,7 +104,7 @@ func (s *orderService) PlaceOrder(ctx context.Context, req *models.PlaceOrderReq
 	order := &models.Order{
 		OrderId:     uuid.New(),
 		CustomerNo:  req.CustomerNo,
-		AddressNo:   req.AddressNo,
+		AddressNo:   address.AddressNo,
 		OrderRef:    generateOrderRef(),
 		Subtotal:    subtotal,
 		Discount:    req.Discount,
@@ -101,7 +116,7 @@ func (s *orderService) PlaceOrder(ctx context.Context, req *models.PlaceOrderReq
 		Items:       orderItems,
 	}
 
-	// ── Save atomically — stock decremented inside same tx ────────────────────
+	// ── Save atomically ───────────────────────────────────────────────────────
 	created, err := s.repo.Save(ctx, order)
 	if err != nil {
 		log.Printf("orderService.PlaceOrder error: %v", err)
@@ -112,7 +127,7 @@ func (s *orderService) PlaceOrder(ctx context.Context, req *models.PlaceOrderReq
 }
 
 func (s *orderService) GetOrders(ctx context.Context, customerId uuid.UUID) ([]models.Order, error) {
-	orders, err := s.repo.GetAll(ctx, customerId)
+	orders, err := s.repo.GetByCustomerId(ctx, customerId)
 	if err != nil {
 		log.Printf("orderService.GetOrders error: %v", err)
 		return nil, fmt.Errorf("orderService.GetOrders: %w", err)

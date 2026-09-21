@@ -50,19 +50,17 @@ func (s *categoryService) FindOne(ctx context.Context, Id uuid.UUID) (*models.Ca
 func (s *categoryService) Create(ctx context.Context, req *models.CreateCategoryRequest) (*models.Category, error) {
 	category := &models.Category{
 		CategoryId:   uuid.New(),
-		ParentNo:     req.ParentNo,
+		ParentId:     req.ParentId, // ← UUID
 		CategoryName: req.CategoryName,
 		Slug:         req.Slug,
 		Details:      req.Details,
 		Status:       models.StatusActive,
 		CreatedBy:    req.CreatedBy,
 	}
-
 	created, err := s.repo.Save(ctx, category)
 	if err != nil {
 		return nil, fmt.Errorf("categoryService.Create: %w", err)
 	}
-
 	return created, nil
 }
 

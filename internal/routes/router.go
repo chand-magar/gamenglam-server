@@ -11,7 +11,7 @@ import (
 	"github.com/chand-magar/gamenglam-server/internal/module/order"
 )
 
-func SetupRouter(router *gin.Engine, db *pgxpool.Pool) {
+func SetupRouter(router *gin.Engine, db *pgxpool.Pool, baseURL string) {
 	api := router.Group("/api/v1")
 
 	authModule := auth.NewModule(db)
@@ -20,7 +20,7 @@ func SetupRouter(router *gin.Engine, db *pgxpool.Pool) {
 	employeeModule := employee.NewModule(db)
 	employeeModule.RegisterRoutes(api)
 
-	catalogModule := catalog.NewModule(db)
+	catalogModule := catalog.NewModule(db, baseURL) // ← pass baseURL
 	catalogModule.RegisterRoutes(api)
 
 	customerModule := customer.NewModule(db)

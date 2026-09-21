@@ -102,3 +102,14 @@ func (s *addressService) Delete(ctx context.Context, Id uuid.UUID) error {
 	}
 	return nil
 }
+
+func (s *addressService) FindOneById(ctx context.Context, Id uuid.UUID) (*models.Address, error) {
+	address, err := s.repo.GetById(ctx, Id)
+	if err != nil {
+		return nil, fmt.Errorf("addressService.FindOneById: %w", err)
+	}
+	if address == nil {
+		return nil, ErrAddressNotFound
+	}
+	return address, nil
+}

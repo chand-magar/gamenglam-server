@@ -16,5 +16,6 @@ func AttributeRoutes(rg *gin.RouterGroup, h *controllers.AttributeHandler, vh *c
 		attributes.DELETE("/:id", h.Delete)
 		attributes.GET("/:id/values", vh.FindByAttributeId)
 		attributes.POST("/:id/values", vh.CreateForAttribute)
+		attributes.GET("/category/:id/values", h.FindByCategoryWithValues)
 	}
 }

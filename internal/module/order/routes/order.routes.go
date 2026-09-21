@@ -9,10 +9,11 @@ import (
 func OrderRoutes(rg *gin.RouterGroup, h *controllers.OrderHandler) {
 	orders := rg.Group("/orders")
 	{
-		orders.POST("",                          h.PlaceOrder)
-		orders.GET("/customer/:customer_id",     h.GetOrders)
-		orders.GET("/:order_id",                 h.GetOrder)
-		orders.PUT("/:order_id/status",          h.UpdateStatus)
-		orders.GET("/:order_id/history",         h.GetStatusHistory)
+		orders.GET("", h.FindAll)
+		orders.POST("", h.PlaceOrder)
+		orders.GET("/customer/:id", h.GetOrders)
+		orders.GET("/:id", h.GetOrder)
+		orders.PUT("/:id/status", h.UpdateStatus)
+		orders.GET("/:id/history", h.GetStatusHistory)
 	}
 }

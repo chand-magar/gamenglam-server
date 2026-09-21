@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -55,13 +56,12 @@ func (h *CategoryHandler) Create(c *gin.Context) {
 		ErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
 	}
-
 	data, err := h.svc.Create(c.Request.Context(), &req)
 	if err != nil {
+		log.Printf("categoryHandler.Create error: %v", err) // ← add this
 		ErrorResponse(c, http.StatusInternalServerError, "Failed to create the record.")
 		return
 	}
-
 	c.JSON(http.StatusCreated, gin.H{
 		"success": true,
 		"message": "Record created successfully.",

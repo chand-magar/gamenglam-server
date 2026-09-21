@@ -7,24 +7,24 @@ import (
 )
 
 type Address struct {
-	AddressNo    uint32    `json:"address_no"`
-	AddressId    uuid.UUID `json:"address_id"`
-	CustomerNo   uint32    `json:"customer_no"`
-	Label        string    `json:"label"`
-	AddressLine1 string    `json:"address_line1"`
-	AddressLine2 *string   `json:"address_line2"`
-	City         string    `json:"city"`
-	State        string    `json:"state"`
-	Country      string    `json:"country"`
-	PostalCode   *string   `json:"postal_code"`
-	IsDefault    bool      `json:"is_default"`
+	AddressNo    uint32     `json:"-"` // ← hide
+	AddressId    uuid.UUID  `json:"address_id"`
+	CustomerNo   uint32     `json:"-"` // ← hide
+	Label        string     `json:"label"`
+	AddressLine1 string     `json:"address_line1"`
+	AddressLine2 *string    `json:"address_line2"`
+	City         string     `json:"city"`
+	State        string     `json:"state"`
+	Country      string     `json:"country"`
+	PostalCode   *string    `json:"postal_code"`
+	IsDefault    bool       `json:"is_default"`
 	Status       StatusEnum `json:"status"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
 type CreateAddressRequest struct {
-	CustomerNo   uint32  `json:"customer_no"   binding:"required"`
+	CustomerNo   uint32  `json:"customer_no"` // ← no binding tag
 	Label        string  `json:"label"         binding:"omitempty,max=65"`
 	AddressLine1 string  `json:"address_line1" binding:"required,max=255"`
 	AddressLine2 *string `json:"address_line2" binding:"omitempty,max=255"`

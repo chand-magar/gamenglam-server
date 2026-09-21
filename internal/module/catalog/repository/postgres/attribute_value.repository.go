@@ -24,25 +24,25 @@ func NewAttributeValueRepository(db *pgxpool.Pool) repository.AttributeValueRepo
 // ── READ operations ───────────────────────────────────────────────────────────
 
 func (r *attributeValueRepository) GetAll(ctx context.Context) ([]models.AttributeValue, error) {
-	query := `
+	rows, err := r.db.Query(ctx, `
 		SELECT
-			attribute_value_no,
-			attribute_value_id,
-			attribute_no,
-			value,
-			display_label,
-			color_hex,
-			sort_order,
-			created_at,
-			created_by,
-			updated_at,
-			updated_by
-		FROM product.attribute_values
-		WHERE status != 'D'
-		ORDER BY sort_order ASC, created_at DESC
-	`
-
-	rows, err := r.db.Query(ctx, query)
+			av.attribute_value_no,
+			av.attribute_value_id,
+			av.attribute_no,
+			a.attribute_id,
+			av.value,
+			av.display_label,
+			av.color_hex,
+			av.sort_order,
+			av.created_at,
+			av.created_by,
+			av.updated_at,
+			av.updated_by
+		FROM catalog.attribute_values av
+		JOIN catalog.attributes a ON a.attribute_no = av.attribute_no
+		WHERE av.status != 'D'
+		ORDER BY av.sort_order ASC, av.created_at DESC
+	`)
 	if err != nil {
 		return nil, fmt.Errorf("attributeValueRepository.GetAll: %w", err)
 	}
@@ -51,11 +51,11 @@ func (r *attributeValueRepository) GetAll(ctx context.Context) ([]models.Attribu
 	var data []models.AttributeValue
 	for rows.Next() {
 		var d models.AttributeValue
-
 		if err := rows.Scan(
 			&d.AttributeValueNo,
 			&d.AttributeValueId,
 			&d.AttributeNo,
+			&d.AttributeId, // ← add
 			&d.Value,
 			&d.DisplayLabel,
 			&d.ColorHex,
@@ -67,7 +67,6 @@ func (r *attributeValueRepository) GetAll(ctx context.Context) ([]models.Attribu
 		); err != nil {
 			return nil, fmt.Errorf("attributeValueRepository.GetAll: scan: %w", err)
 		}
-
 		data = append(data, d)
 	}
 
@@ -79,30 +78,30 @@ func (r *attributeValueRepository) GetAll(ctx context.Context) ([]models.Attribu
 }
 
 func (r *attributeValueRepository) GetById(ctx context.Context, Id uuid.UUID) (*models.AttributeValue, error) {
-	query := `
-		SELECT
-			attribute_value_no,
-			attribute_value_id,
-			attribute_no,
-			value,
-			display_label,
-			color_hex,
-			sort_order,
-			created_at,
-			created_by,
-			updated_at,
-			updated_by
-		FROM product.attribute_values
-		WHERE attribute_value_id = $1
-		AND status != 'D'
-	`
-
 	var d models.AttributeValue
-
-	err := r.db.QueryRow(ctx, query, Id).Scan(
+	err := r.db.QueryRow(ctx, `
+		SELECT
+			av.attribute_value_no,
+			av.attribute_value_id,
+			av.attribute_no,
+			a.attribute_id,
+			av.value,
+			av.display_label,
+			av.color_hex,
+			av.sort_order,
+			av.created_at,
+			av.created_by,
+			av.updated_at,
+			av.updated_by
+		FROM catalog.attribute_values av
+		JOIN catalog.attributes a ON a.attribute_no = av.attribute_no
+		WHERE av.attribute_value_id = $1
+		AND av.status != 'D'
+	`, Id).Scan(
 		&d.AttributeValueNo,
 		&d.AttributeValueId,
 		&d.AttributeNo,
+		&d.AttributeId, // ← add
 		&d.Value,
 		&d.DisplayLabel,
 		&d.ColorHex,
@@ -118,7 +117,6 @@ func (r *attributeValueRepository) GetById(ctx context.Context, Id uuid.UUID) (*
 		}
 		return nil, fmt.Errorf("attributeValueRepository.GetById: %w", err)
 	}
-
 	return &d, nil
 }
 
@@ -135,35 +133,32 @@ func (r *attributeValueRepository) Save(ctx context.Context, attributeValue *mod
 		}
 	}()
 
-	query := `
-		INSERT INTO product.attribute_values (
-			attribute_value_id,
-			attribute_no,
-			value,
-			display_label,
-			color_hex,
-			sort_order,
-			created_by
-		) VALUES ($1, $2, $3, $4, $5, $6, $7)
+	// Resolve attribute_no from attribute_id
+	var attributeNo uint32
+	err = tx.QueryRow(ctx, `
+		SELECT attribute_no FROM catalog.attributes
+		WHERE attribute_id = $1 AND status != 'D'
+	`, attributeValue.AttributeId).Scan(&attributeNo)
+	if err != nil {
+		return nil, fmt.Errorf("attributeValueRepository.Save: resolve attribute: %w", err)
+	}
+
+	var d models.AttributeValue
+	err = tx.QueryRow(ctx, `
+		INSERT INTO catalog.attribute_values (
+			attribute_value_id, attribute_no, value,
+			display_label, color_hex, sort_order, created_by
+		) VALUES ($1,$2,$3,$4,$5,$6,$7)
 		RETURNING
 			attribute_value_no,
 			attribute_value_id,
 			attribute_no,
-			value,
-			display_label,
-			color_hex,
-			sort_order,
-			created_at,
-			created_by,
-			updated_at,
-			updated_by
-	`
-
-	var d models.AttributeValue
-
-	err = tx.QueryRow(ctx, query,
+			(SELECT attribute_id FROM catalog.attributes WHERE attribute_no = $2),
+			value, display_label, color_hex, sort_order,
+			created_at, created_by, updated_at, updated_by
+	`,
 		attributeValue.AttributeValueId,
-		attributeValue.AttributeNo,
+		attributeNo,
 		attributeValue.Value,
 		attributeValue.DisplayLabel,
 		attributeValue.ColorHex,
@@ -173,6 +168,7 @@ func (r *attributeValueRepository) Save(ctx context.Context, attributeValue *mod
 		&d.AttributeValueNo,
 		&d.AttributeValueId,
 		&d.AttributeNo,
+		&d.AttributeId, // ← add
 		&d.Value,
 		&d.DisplayLabel,
 		&d.ColorHex,
@@ -206,7 +202,7 @@ func (r *attributeValueRepository) Modify(ctx context.Context, Id uuid.UUID, req
 
 	var lockedNo uint32
 	err = tx.QueryRow(ctx, `
-		SELECT attribute_value_no FROM product.attribute_values
+		SELECT attribute_value_no FROM catalog.attribute_values
 		WHERE attribute_value_id = $1 AND status != 'D'
 		FOR UPDATE
 	`, Id).Scan(&lockedNo)
@@ -217,35 +213,26 @@ func (r *attributeValueRepository) Modify(ctx context.Context, Id uuid.UUID, req
 		return nil, fmt.Errorf("attributeValueRepository.Modify: lock row: %w", err)
 	}
 
-	query := `
-		UPDATE product.attribute_values
-		SET
-			attribute_no  = $1,
-			value         = COALESCE(NULLIF($2, ''), value),
-			display_label = COALESCE(NULLIF($3, ''), display_label),
-			color_hex     = $4,
-			sort_order    = $5,
+	var d models.AttributeValue
+	err = tx.QueryRow(ctx, `
+		UPDATE catalog.attribute_values SET
+			value         = COALESCE(NULLIF($1, ''), value),
+			display_label = COALESCE(NULLIF($2, ''), display_label),
+			color_hex     = $3,
+			sort_order    = $4,
 			updated_at    = NOW(),
-			updated_by    = $6
-		WHERE attribute_value_id = $7
+			updated_by    = $5
+		WHERE attribute_value_id = $6
 		RETURNING
 			attribute_value_no,
 			attribute_value_id,
 			attribute_no,
-			value,
-			display_label,
-			color_hex,
-			sort_order,
-			created_at,
-			created_by,
-			updated_at,
-			updated_by
-	`
-
-	var d models.AttributeValue
-
-	err = tx.QueryRow(ctx, query,
-		req.AttributeNo,
+			(SELECT a2.attribute_id FROM catalog.attributes a2 WHERE a2.attribute_no = (
+				SELECT attribute_no FROM catalog.attribute_values WHERE attribute_value_id = $6
+			)),
+			value, display_label, color_hex, sort_order,
+			created_at, created_by, updated_at, updated_by
+	`,
 		req.Value,
 		req.DisplayLabel,
 		req.ColorHex,
@@ -256,6 +243,7 @@ func (r *attributeValueRepository) Modify(ctx context.Context, Id uuid.UUID, req
 		&d.AttributeValueNo,
 		&d.AttributeValueId,
 		&d.AttributeNo,
+		&d.AttributeId, // ← add
 		&d.Value,
 		&d.DisplayLabel,
 		&d.ColorHex,
@@ -289,7 +277,7 @@ func (r *attributeValueRepository) Remove(ctx context.Context, Id uuid.UUID) err
 
 	var lockedNo uint32
 	err = tx.QueryRow(ctx, `
-		SELECT attribute_value_no FROM product.attribute_values
+		SELECT attribute_value_no FROM catalog.attribute_values
 		WHERE attribute_value_id = $1 AND status != 'D'
 		FOR UPDATE
 	`, Id).Scan(&lockedNo)
@@ -301,7 +289,7 @@ func (r *attributeValueRepository) Remove(ctx context.Context, Id uuid.UUID) err
 	}
 
 	_, err = tx.Exec(ctx, `
-		UPDATE product.attribute_values
+		UPDATE catalog.attribute_values
 		SET
 			status     = 'D',
 			updated_at = NOW()
@@ -319,11 +307,12 @@ func (r *attributeValueRepository) Remove(ctx context.Context, Id uuid.UUID) err
 }
 
 func (r *attributeValueRepository) GetByAttributeId(ctx context.Context, attributeId uuid.UUID) ([]models.AttributeValue, error) {
-	query := `
+	rows, err := r.db.Query(ctx, `
 		SELECT
 			av.attribute_value_no,
 			av.attribute_value_id,
 			av.attribute_no,
+			a.attribute_id,
 			av.value,
 			av.display_label,
 			av.color_hex,
@@ -332,14 +321,12 @@ func (r *attributeValueRepository) GetByAttributeId(ctx context.Context, attribu
 			av.created_by,
 			av.updated_at,
 			av.updated_by
-		FROM product.attribute_values av
-		JOIN product.attributes a ON a.attribute_no = av.attribute_no
+		FROM catalog.attribute_values av
+		JOIN catalog.attributes a ON a.attribute_no = av.attribute_no
 		WHERE a.attribute_id = $1
 		AND av.status != 'D'
 		ORDER BY av.sort_order ASC, av.created_at DESC
-	`
-
-	rows, err := r.db.Query(ctx, query, attributeId)
+	`, attributeId)
 	if err != nil {
 		return nil, fmt.Errorf("attributeValueRepository.GetByAttributeId: %w", err)
 	}
@@ -352,6 +339,7 @@ func (r *attributeValueRepository) GetByAttributeId(ctx context.Context, attribu
 			&d.AttributeValueNo,
 			&d.AttributeValueId,
 			&d.AttributeNo,
+			&d.AttributeId, // ← add
 			&d.Value,
 			&d.DisplayLabel,
 			&d.ColorHex,

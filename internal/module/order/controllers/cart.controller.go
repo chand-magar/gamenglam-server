@@ -20,9 +20,9 @@ func NewCartHandler(svc services.CartService) *CartHandler {
 }
 
 func (h *CartHandler) GetCart(c *gin.Context) {
-	customerId, err := uuid.Parse(c.Param("customer_id"))
+	customerId, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		ErrorResponse(c, http.StatusBadRequest, "Invalid customer_id.")
+		ErrorResponse(c, http.StatusBadRequest, "Invalid customer ID.")
 		return
 	}
 
@@ -36,9 +36,9 @@ func (h *CartHandler) GetCart(c *gin.Context) {
 }
 
 func (h *CartHandler) AddItem(c *gin.Context) {
-	customerId, err := uuid.Parse(c.Param("customer_id"))
+	customerId, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		ErrorResponse(c, http.StatusBadRequest, "Invalid customer_id.")
+		ErrorResponse(c, http.StatusBadRequest, "Invalid customer ID.")
 		return
 	}
 
@@ -69,9 +69,9 @@ func (h *CartHandler) AddItem(c *gin.Context) {
 }
 
 func (h *CartHandler) UpdateItem(c *gin.Context) {
-	cartItemId, err := uuid.Parse(c.Param("cart_item_id"))
+	cartItemId, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		ErrorResponse(c, http.StatusBadRequest, "Invalid cart_item_id.")
+		ErrorResponse(c, http.StatusBadRequest, "Invalid cart item ID.")
 		return
 	}
 
@@ -95,9 +95,9 @@ func (h *CartHandler) UpdateItem(c *gin.Context) {
 }
 
 func (h *CartHandler) RemoveItem(c *gin.Context) {
-	cartItemId, err := uuid.Parse(c.Param("cart_item_id"))
+	cartItemId, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		ErrorResponse(c, http.StatusBadRequest, "Invalid cart_item_id.")
+		ErrorResponse(c, http.StatusBadRequest, "Invalid cart item ID.")
 		return
 	}
 
@@ -114,9 +114,9 @@ func (h *CartHandler) RemoveItem(c *gin.Context) {
 }
 
 func (h *CartHandler) ClearCart(c *gin.Context) {
-	customerId, err := uuid.Parse(c.Param("customer_id"))
+	customerId, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		ErrorResponse(c, http.StatusBadRequest, "Invalid customer_id.")
+		ErrorResponse(c, http.StatusBadRequest, "Invalid customer ID.")
 		return
 	}
 

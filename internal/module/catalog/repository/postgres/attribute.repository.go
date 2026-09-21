@@ -21,31 +21,57 @@ func NewAttributeRepository(db *pgxpool.Pool) repository.AttributeRepository {
 	return &attributeRepository{db: db}
 }
 
+// attributeSelect requires JOIN with catalog.categories c
+const attributeSelect = `
+	a.attribute_no,
+	a.attribute_id,
+	a.category_no,
+	c.category_id,
+	a.attribute_name,
+	a.code,
+	a.type,
+	a.is_required,
+	a.is_variant,
+	a.show_in_filter,
+	a.sort_order,
+	a.status,
+	a.created_at,
+	a.created_by,
+	a.updated_at,
+	a.updated_by
+`
+
+func scanAttribute(row interface{ Scan(...any) error }, d *models.Attribute) error {
+	return row.Scan(
+		&d.AttributeNo,
+		&d.AttributeId,
+		&d.CategoryNo,
+		&d.CategoryId,
+		&d.AttributeName,
+		&d.Code,
+		&d.Type,
+		&d.IsRequired,
+		&d.IsVariant,
+		&d.ShowInFilter, // ← add
+		&d.SortOrder,
+		&d.Status,
+		&d.CreatedAt,
+		&d.CreatedBy,
+		&d.UpdatedAt,
+		&d.UpdatedBy,
+	)
+}
+
 // ── READ operations ───────────────────────────────────────────────────────────
 
 func (r *attributeRepository) GetAll(ctx context.Context) ([]models.Attribute, error) {
-	query := `
-		SELECT
-			attribute_no,
-			attribute_id,
-			category_no,
-			attribute_name,
-			code,
-			type,
-			is_required,
-			is_variant,
-			sort_order,
-			status,
-			created_at,
-			created_by,
-			updated_at,
-			updated_by
-		FROM product.attributes
-		WHERE status != 'D'
-		ORDER BY sort_order ASC, created_at DESC
-	`
-
-	rows, err := r.db.Query(ctx, query)
+	rows, err := r.db.Query(ctx, `
+		SELECT `+attributeSelect+`
+		FROM catalog.attributes a
+		JOIN catalog.categories c ON c.category_no = a.category_no
+		WHERE a.status != 'D'
+		ORDER BY a.sort_order ASC, a.created_at DESC
+	`)
 	if err != nil {
 		return nil, fmt.Errorf("attributeRepository.GetAll: %w", err)
 	}
@@ -54,26 +80,9 @@ func (r *attributeRepository) GetAll(ctx context.Context) ([]models.Attribute, e
 	var data []models.Attribute
 	for rows.Next() {
 		var d models.Attribute
-
-		if err := rows.Scan(
-			&d.AttributeNo,
-			&d.AttributeId,
-			&d.CategoryNo,
-			&d.AttributeName,
-			&d.Code,
-			&d.Type,
-			&d.IsRequired,
-			&d.IsVariant,
-			&d.SortOrder,
-			&d.Status,
-			&d.CreatedAt,
-			&d.CreatedBy,
-			&d.UpdatedAt,
-			&d.UpdatedBy,
-		); err != nil {
+		if err := scanAttribute(rows, &d); err != nil {
 			return nil, fmt.Errorf("attributeRepository.GetAll: scan: %w", err)
 		}
-
 		data = append(data, d)
 	}
 
@@ -83,56 +92,25 @@ func (r *attributeRepository) GetAll(ctx context.Context) ([]models.Attribute, e
 
 	return data, nil
 }
-
 func (r *attributeRepository) GetById(ctx context.Context, Id uuid.UUID) (*models.Attribute, error) {
-	query := `
-		SELECT
-			attribute_no,
-			attribute_id,
-			category_no,
-			attribute_name,
-			code,
-			type,
-			is_required,
-			is_variant,
-			sort_order,
-			created_at,
-			created_by,
-			updated_at,
-			updated_by
-		FROM product.attributes
-		WHERE attribute_id = $1
-		AND status != 'D'
-	`
-
 	var d models.Attribute
-
-	err := r.db.QueryRow(ctx, query, Id).Scan(
-		&d.AttributeNo,
-		&d.AttributeId,
-		&d.CategoryNo,
-		&d.AttributeName,
-		&d.Code,
-		&d.Type,
-		&d.IsRequired,
-		&d.IsVariant,
-		&d.SortOrder,
-		&d.CreatedAt,
-		&d.CreatedBy,
-		&d.UpdatedAt,
-		&d.UpdatedBy,
-	)
+	err := scanAttribute(r.db.QueryRow(ctx, `
+		SELECT `+attributeSelect+`
+		FROM catalog.attributes a
+		JOIN catalog.categories c ON c.category_no = a.category_no
+		WHERE a.attribute_id = $1
+		AND a.status != 'D'
+	`, Id), &d)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("attributeRepository.GetById: %w", err)
 	}
-
 	return &d, nil
 }
 
-// ── WRITE operations (ACID — transaction + row lock) ──────────────────────────
+// ── WRITE operations ──────────────────────────────────────────────────────────
 
 func (r *attributeRepository) Save(ctx context.Context, attribute *models.Attribute) (*models.Attribute, error) {
 	tx, err := r.db.Begin(ctx)
@@ -145,61 +123,40 @@ func (r *attributeRepository) Save(ctx context.Context, attribute *models.Attrib
 		}
 	}()
 
-	query := `
-		INSERT INTO product.attributes (
-			attribute_id,
-			category_no,
-			attribute_name,
-			code,
-			type,
-			is_required,
-			is_variant,
-			sort_order,
-			created_by
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		RETURNING
-			attribute_no,
-			attribute_id,
-			category_no,
-			attribute_name,
-			code,
-			type,
-			is_required,
-			is_variant,
-			sort_order,
-			created_at,
-			created_by,
-			updated_at,
-			updated_by
-	`
+	// Resolve category_no from category_id
+	var categoryNo uint32
+	err = tx.QueryRow(ctx, `
+		SELECT category_no FROM catalog.categories
+		WHERE category_id = $1 AND status != 'D'
+	`, attribute.CategoryId).Scan(&categoryNo)
+	if err != nil {
+		return nil, fmt.Errorf("attributeRepository.Save: resolve category: %w", err)
+	}
 
 	var d models.Attribute
-
-	err = tx.QueryRow(ctx, query,
+	err = scanAttribute(tx.QueryRow(ctx, `
+		INSERT INTO catalog.attributes (
+			attribute_id, category_no, attribute_name, code,
+			type, is_required, is_variant, show_in_filter, sort_order, created_by
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+		RETURNING
+			attribute_no, attribute_id, category_no,
+			(SELECT category_id FROM catalog.categories WHERE category_no = $2),
+			attribute_name, code, type, is_required, is_variant,
+			show_in_filter,  -- ← add between is_variant and sort_order
+			sort_order, status, created_at, created_by, updated_at, updated_by
+	`,
 		attribute.AttributeId,
-		attribute.CategoryNo,
+		categoryNo,
 		attribute.AttributeName,
 		attribute.Code,
 		attribute.Type,
 		attribute.IsRequired,
 		attribute.IsVariant,
+		attribute.ShowInFilter,
 		attribute.SortOrder,
 		attribute.CreatedBy,
-	).Scan(
-		&d.AttributeNo,
-		&d.AttributeId,
-		&d.CategoryNo,
-		&d.AttributeName,
-		&d.Code,
-		&d.Type,
-		&d.IsRequired,
-		&d.IsVariant,
-		&d.SortOrder,
-		&d.CreatedAt,
-		&d.CreatedBy,
-		&d.UpdatedAt,
-		&d.UpdatedBy,
-	)
+	), &d)
 	if err != nil {
 		return nil, fmt.Errorf("attributeRepository.Save: insert: %w", err)
 	}
@@ -224,7 +181,7 @@ func (r *attributeRepository) Modify(ctx context.Context, Id uuid.UUID, req *mod
 
 	var lockedNo uint32
 	err = tx.QueryRow(ctx, `
-		SELECT attribute_no FROM product.attributes
+		SELECT attribute_no FROM catalog.attributes
 		WHERE attribute_id = $1 AND status != 'D'
 		FOR UPDATE
 	`, Id).Scan(&lockedNo)
@@ -235,62 +192,48 @@ func (r *attributeRepository) Modify(ctx context.Context, Id uuid.UUID, req *mod
 		return nil, fmt.Errorf("attributeRepository.Modify: lock row: %w", err)
 	}
 
-	query := `
-		UPDATE product.attributes
-		SET
+	// Resolve category_no from category_id
+	var categoryNo uint32
+	err = tx.QueryRow(ctx, `
+		SELECT category_no FROM catalog.categories
+		WHERE category_id = $1 AND status != 'D'
+	`, req.CategoryId).Scan(&categoryNo)
+	if err != nil {
+		return nil, fmt.Errorf("attributeRepository.Modify: resolve category: %w", err)
+	}
+
+	var d models.Attribute
+	err = scanAttribute(tx.QueryRow(ctx, `
+		UPDATE catalog.attributes SET
 			category_no    = $1,
 			attribute_name = COALESCE(NULLIF($2, ''), attribute_name),
 			code           = COALESCE(NULLIF($3, ''), code),
 			type           = $4,
 			is_required    = $5,
 			is_variant     = $6,
-			sort_order     = $7,
+			show_in_filter = $7,
+			sort_order     = $8,
 			updated_at     = NOW(),
-			updated_by     = $8
-		WHERE attribute_id = $9
+			updated_by     = $9
+		WHERE attribute_id = $10
 		RETURNING
-			attribute_no,
-			attribute_id,
-			category_no,
-			attribute_name,
-			code,
-			type,
-			is_required,
-			is_variant,
-			sort_order,
-			created_at,
-			created_by,
-			updated_at,
-			updated_by
-	`
-
-	var d models.Attribute
-
-	err = tx.QueryRow(ctx, query,
-		req.CategoryNo,
+			attribute_no, attribute_id, category_no,
+			(SELECT category_id FROM catalog.categories WHERE category_no = $1),
+			attribute_name, code, type, is_required, is_variant,
+			show_in_filter,  -- ← add
+			sort_order, status, created_at, created_by, updated_at, updated_by
+	`,
+		categoryNo,
 		req.AttributeName,
 		req.Code,
 		req.Type,
 		req.IsRequired,
 		req.IsVariant,
+		req.ShowInFilter,
 		req.SortOrder,
 		req.UpdatedBy,
 		Id,
-	).Scan(
-		&d.AttributeNo,
-		&d.AttributeId,
-		&d.CategoryNo,
-		&d.AttributeName,
-		&d.Code,
-		&d.Type,
-		&d.IsRequired,
-		&d.IsVariant,
-		&d.SortOrder,
-		&d.CreatedAt,
-		&d.CreatedBy,
-		&d.UpdatedAt,
-		&d.UpdatedBy,
-	)
+	), &d)
 	if err != nil {
 		return nil, fmt.Errorf("attributeRepository.Modify: update: %w", err)
 	}
@@ -315,7 +258,7 @@ func (r *attributeRepository) Remove(ctx context.Context, Id uuid.UUID) error {
 
 	var lockedNo uint32
 	err = tx.QueryRow(ctx, `
-		SELECT attribute_no FROM product.attributes
+		SELECT attribute_no FROM catalog.attributes
 		WHERE attribute_id = $1 AND status != 'D'
 		FOR UPDATE
 	`, Id).Scan(&lockedNo)
@@ -327,10 +270,8 @@ func (r *attributeRepository) Remove(ctx context.Context, Id uuid.UUID) error {
 	}
 
 	_, err = tx.Exec(ctx, `
-		UPDATE product.attributes
-		SET
-			status     = 'D',
-			updated_at = NOW()
+		UPDATE catalog.attributes
+		SET status = 'D', updated_at = NOW()
 		WHERE attribute_id = $1
 	`, Id)
 	if err != nil {
@@ -342,4 +283,77 @@ func (r *attributeRepository) Remove(ctx context.Context, Id uuid.UUID) error {
 	}
 
 	return nil
+}
+
+func (r *attributeRepository) GetByCategoryWithValues(ctx context.Context, categoryId uuid.UUID) ([]models.AttributeWithValues, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT
+			a.attribute_id::text,
+			a.attribute_name,
+			a.code,
+			a.type::text,
+			av.attribute_value_id::text,
+			av.display_label,
+			av.value,
+			COALESCE(av.color_hex, '') AS color_hex
+		FROM catalog.attributes a
+		JOIN catalog.categories c ON c.category_no = a.category_no
+		LEFT JOIN catalog.attribute_values av ON av.attribute_no = a.attribute_no
+			AND av.status != 'D'
+		WHERE c.category_id = $1
+		AND a.status != 'D'
+		AND show_in_filter = TRUE
+		ORDER BY a.sort_order ASC, a.attribute_name, av.sort_order ASC
+	`, categoryId)
+	if err != nil {
+		return nil, fmt.Errorf("attributeRepository.GetByCategoryWithValues: %w", err)
+	}
+	defer rows.Close()
+
+	attrMap := map[string]*models.AttributeWithValues{}
+	attrOrder := []string{}
+
+	for rows.Next() {
+		var (
+			attrId, attrName, code, attrType     string
+			valId, displayLabel, value, colorHex *string
+		)
+		if err := rows.Scan(&attrId, &attrName, &code, &attrType, &valId, &displayLabel, &value, &colorHex); err != nil {
+			return nil, fmt.Errorf("attributeRepository.GetByCategoryWithValues: scan: %w", err)
+		}
+
+		if _, exists := attrMap[attrId]; !exists {
+			attrMap[attrId] = &models.AttributeWithValues{
+				AttributeId:   attrId,
+				AttributeName: attrName,
+				Code:          code,
+				Type:          attrType,
+				Values:        []models.AttributeValueOption{},
+			}
+			attrOrder = append(attrOrder, attrId)
+		}
+
+		if valId != nil && displayLabel != nil && value != nil {
+			hex := ""
+			if colorHex != nil {
+				hex = *colorHex
+			}
+			attrMap[attrId].Values = append(attrMap[attrId].Values, models.AttributeValueOption{
+				AttributeValueId: *valId,
+				DisplayLabel:     *displayLabel,
+				Value:            *value,
+				ColorHex:         hex,
+			})
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("attributeRepository.GetByCategoryWithValues: rows: %w", err)
+	}
+
+	result := make([]models.AttributeWithValues, 0, len(attrOrder))
+	for _, id := range attrOrder {
+		result = append(result, *attrMap[id])
+	}
+	return result, nil
 }

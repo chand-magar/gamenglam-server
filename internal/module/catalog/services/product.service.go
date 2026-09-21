@@ -49,17 +49,17 @@ func (s *productService) FindOne(ctx context.Context, Id uuid.UUID) (*models.Pro
 
 func (s *productService) Create(ctx context.Context, req *models.CreateProductRequest) (*models.Product, error) {
 	product := &models.Product{
-		ProductId:   uuid.New(),
-		CategoryNo:  req.CategoryNo,
-		SKU:         req.SKU,
-		ProductName: req.ProductName,
-		Slug:        req.Slug,
-		Description: req.Description,
-		BasePrice:   req.BasePrice,
-		IsFeatured:  req.IsFeatured,
-		StockQty:    req.StockQty,
-		Status:      models.ProductStatusDraft,
-		CreatedBy:   req.CreatedBy,
+		ProductId:      uuid.New(), // ← generate here
+		CategoryId:     &req.CategoryId,
+		SKU:            req.SKU,
+		ProductName:    req.ProductName,
+		Slug:           req.Slug,
+		Description:    req.Description,
+		ImageURL:       req.ImageURL,
+		Features:       req.Features,
+		Specifications: req.Specifications,
+		IsFeatured:     req.IsFeatured,
+		CreatedBy:      req.CreatedBy,
 	}
 
 	created, err := s.repo.Save(ctx, product)
@@ -101,4 +101,28 @@ func (s *productService) Delete(ctx context.Context, Id uuid.UUID) error {
 	}
 
 	return nil
+}
+
+func (s *productService) UpdateImage(ctx context.Context, Id uuid.UUID, imageURL string) (*models.Product, error) {
+	updated, err := s.repo.ModifyImage(ctx, Id, imageURL)
+	if err != nil {
+		return nil, fmt.Errorf("productService.UpdateImage: %w", err)
+	}
+	return updated, nil
+}
+
+func (s *productService) FindByCategory(ctx context.Context, categoryId uuid.UUID) ([]models.Product, error) {
+	products, err := s.repo.GetByCategory(ctx, categoryId)
+	if err != nil {
+		return nil, fmt.Errorf("productService.FindByCategory: %w", err)
+	}
+	return products, nil
+}
+
+func (s *productService) FindAttributes(ctx context.Context, productId uuid.UUID) ([]models.ProductAttribute, error) {
+	attrs, err := s.repo.GetAttributesByProductId(ctx, productId)
+	if err != nil {
+		return nil, fmt.Errorf("productService.FindAttributes: %w", err)
+	}
+	return attrs, nil
 }

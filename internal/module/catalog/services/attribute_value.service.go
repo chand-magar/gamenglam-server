@@ -57,14 +57,13 @@ func (s *attributeValueService) FindByAttributeId(ctx context.Context, Id uuid.U
 func (s *attributeValueService) Create(ctx context.Context, req *models.CreateAttributeValueRequest) (*models.AttributeValue, error) {
 	attributeValue := &models.AttributeValue{
 		AttributeValueId: uuid.New(),
-		AttributeNo:      req.AttributeNo,
+		AttributeId:      req.AttributeId, // ← UUID, repo resolves attribute_no
 		Value:            req.Value,
 		DisplayLabel:     req.DisplayLabel,
 		ColorHex:         req.ColorHex,
 		SortOrder:        req.SortOrder,
 		CreatedBy:        req.CreatedBy,
 	}
-
 	created, err := s.repo.Save(ctx, attributeValue)
 	if err != nil {
 		return nil, fmt.Errorf("attributeValueService.Create: %w", err)

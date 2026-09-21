@@ -15,8 +15,8 @@ import (
 
 var (
 	ErrCartItemNotFound  = errors.New("cart item not found")
-	ErrInsufficientStock = errors.New("insufficient stock")
 	ErrVariantNotFound   = errors.New("variant not found")
+	ErrInsufficientStock = errors.New("insufficient stock")
 )
 
 type cartService struct {
@@ -41,7 +41,8 @@ func (s *cartService) GetCart(ctx context.Context, customerId uuid.UUID) (*model
 }
 
 func (s *cartService) AddItem(ctx context.Context, customerId uuid.UUID, req *models.AddCartItemRequest) (*models.CartItem, error) {
-	variant, err := s.catalogProvider.GetVariantByNo(ctx, req.VariantNo)
+	// Use variant_id (UUID) instead of variant_no
+	variant, err := s.catalogProvider.GetVariantById(ctx, req.VariantId)
 	if err != nil {
 		return nil, fmt.Errorf("cartService.AddItem: %w", err)
 	}
@@ -63,13 +64,13 @@ func (s *cartService) AddItem(ctx context.Context, customerId uuid.UUID, req *mo
 		}
 	}
 
-	existing, err := s.repo.GetCartItem(ctx, cart.CartNo, req.VariantNo)
+	existing, err := s.repo.GetCartItem(ctx, cart.CartNo, variant.VariantNo)
 	if err != nil {
 		return nil, fmt.Errorf("cartService.AddItem: %w", err)
 	}
 	if existing != nil {
 		return s.repo.UpdateItem(ctx, existing.CartItemId, &models.UpdateCartItemRequest{
-			Quantity: existing.Quantity + req.Quantity,
+			Quantity: int(existing.Quantity) + req.Quantity,
 		})
 	}
 

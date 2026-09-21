@@ -14,6 +14,9 @@ func ProductRoutes(rg *gin.RouterGroup, h *controllers.ProductHandler, vh *contr
 		products.POST("", h.Create)
 		products.PUT("/:id", h.Update)
 		products.DELETE("/:id", h.Delete)
+		products.POST("/:id/image", h.UploadImage)
 		products.GET("/:id/variants", vh.FindByProductId)
+		products.GET("/:id/attributes", h.FindAttributes)                               // ← new
+		products.GET("/:id/variants-with-attributes", vh.FindByProductIdWithAttributes) // ← add
 	}
 }

@@ -50,7 +50,7 @@ func (s *attributeService) FindOne(ctx context.Context, Id uuid.UUID) (*models.A
 func (s *attributeService) Create(ctx context.Context, req *models.CreateAttributeRequest) (*models.Attribute, error) {
 	attribute := &models.Attribute{
 		AttributeId:   uuid.New(),
-		CategoryNo:    req.CategoryNo,
+		CategoryId:    req.CategoryId, // ← UUID
 		AttributeName: req.AttributeName,
 		Code:          req.Code,
 		Type:          req.Type,
@@ -62,6 +62,7 @@ func (s *attributeService) Create(ctx context.Context, req *models.CreateAttribu
 
 	created, err := s.repo.Save(ctx, attribute)
 	if err != nil {
+		log.Printf("attributeService.Create error: %v", err)
 		return nil, fmt.Errorf("attributeService.Create: %w", err)
 	}
 
@@ -79,6 +80,7 @@ func (s *attributeService) Update(ctx context.Context, Id uuid.UUID, req *models
 
 	updated, err := s.repo.Modify(ctx, Id, req)
 	if err != nil {
+		log.Printf("attributeService.Update error: %v", err)
 		return nil, fmt.Errorf("attributeService.Update: %w", err)
 	}
 
@@ -99,4 +101,12 @@ func (s *attributeService) Delete(ctx context.Context, Id uuid.UUID) error {
 	}
 
 	return nil
+}
+
+func (s *attributeService) FindByCategoryWithValues(ctx context.Context, categoryId uuid.UUID) ([]models.AttributeWithValues, error) {
+	data, err := s.repo.GetByCategoryWithValues(ctx, categoryId)
+	if err != nil {
+		return nil, fmt.Errorf("attributeService.FindByCategoryWithValues: %w", err)
+	}
+	return data, nil
 }

@@ -26,22 +26,23 @@ func NewCategoryRepository(db *pgxpool.Pool) repository.CategoryRepository {
 func (r *categoryRepository) GetAll(ctx context.Context) ([]models.Category, error) {
 	query := `
 		SELECT
-			category_no,
-			category_id,
-			parent_no,
-			category_name,
-			slug,
-			details,
-			status,
-			created_at,
-			created_by,
-			updated_at,
-			updated_by
-		FROM product.categories
-		WHERE status != 'D'
-		ORDER BY created_at DESC
+			c.category_no,
+			c.category_id,
+			c.parent_no,
+			p.category_id AS parent_id,
+			c.category_name,
+			c.slug,
+			c.details,
+			c.status,
+			c.created_at,
+			c.created_by,
+			c.updated_at,
+			c.updated_by
+		FROM catalog.categories c
+		LEFT JOIN catalog.categories p ON p.category_no = c.parent_no
+		WHERE c.status != 'D'
+		ORDER BY c.created_at DESC
 	`
-
 	rows, err := r.db.Query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("categoryRepository.GetAll: %w", err)
@@ -51,11 +52,11 @@ func (r *categoryRepository) GetAll(ctx context.Context) ([]models.Category, err
 	var data []models.Category
 	for rows.Next() {
 		var d models.Category
-
 		if err := rows.Scan(
 			&d.CategoryNo,
 			&d.CategoryId,
 			&d.ParentNo,
+			&d.ParentId, // ← add
 			&d.CategoryName,
 			&d.Slug,
 			&d.Details,
@@ -67,7 +68,6 @@ func (r *categoryRepository) GetAll(ctx context.Context) ([]models.Category, err
 		); err != nil {
 			return nil, fmt.Errorf("categoryRepository.GetAll: scan: %w", err)
 		}
-
 		data = append(data, d)
 	}
 
@@ -78,31 +78,24 @@ func (r *categoryRepository) GetAll(ctx context.Context) ([]models.Category, err
 	return data, nil
 }
 
+// GetAll — already correct in your file
+// GetById — fix schema name
 func (r *categoryRepository) GetById(ctx context.Context, Id uuid.UUID) (*models.Category, error) {
-	query := `
-		SELECT
-			category_no,
-			category_id,
-			parent_no,
-			category_name,
-			slug,
-			details,
-			status,
-			created_at,
-			created_by,
-			updated_at,
-			updated_by
-		FROM product.categories
-		WHERE category_id = $1
-		AND status != 'D'
-	`
-
 	var d models.Category
-
-	err := r.db.QueryRow(ctx, query, Id).Scan(
+	err := r.db.QueryRow(ctx, `
+		SELECT
+			c.category_no, c.category_id, c.parent_no,
+			p.category_id AS parent_id,
+			c.category_name, c.slug, c.details, c.status,
+			c.created_at, c.created_by, c.updated_at, c.updated_by
+		FROM catalog.categories c
+		LEFT JOIN catalog.categories p ON p.category_no = c.parent_no
+		WHERE c.category_id = $1 AND c.status != 'D'
+	`, Id).Scan(
 		&d.CategoryNo,
 		&d.CategoryId,
 		&d.ParentNo,
+		&d.ParentId,
 		&d.CategoryName,
 		&d.Slug,
 		&d.Details,
@@ -118,7 +111,6 @@ func (r *categoryRepository) GetById(ctx context.Context, Id uuid.UUID) (*models
 		}
 		return nil, fmt.Errorf("categoryRepository.GetById: %w", err)
 	}
-
 	return &d, nil
 }
 
@@ -135,35 +127,33 @@ func (r *categoryRepository) Save(ctx context.Context, category *models.Category
 		}
 	}()
 
-	query := `
-		INSERT INTO product.categories (
-			category_id,
-			parent_no,
-			category_name,
-			slug,
-			details,
-			status,
-			created_by
-		) VALUES ($1, $2, $3, $4, $5, $6, $7)
-		RETURNING
-			category_no,
-			category_id,
-			parent_no,
-			category_name,
-			slug,
-			details,
-			status,
-			created_at,
-			created_by,
-			updated_at,
-			updated_by
-	`
+	// Resolve parent_no from parent_id if provided
+	var parentNo *uint32
+	if category.ParentId != nil {
+		var pNo uint32
+		err = tx.QueryRow(ctx, `
+			SELECT category_no FROM catalog.categories
+			WHERE category_id = $1 AND status != 'D'
+		`, category.ParentId).Scan(&pNo)
+		if err != nil {
+			return nil, fmt.Errorf("categoryRepository.Save: resolve parent: %w", err)
+		}
+		parentNo = &pNo
+	}
 
 	var d models.Category
-
-	err = tx.QueryRow(ctx, query,
+	err = tx.QueryRow(ctx, `
+		INSERT INTO catalog.categories (
+			category_id, parent_no, category_name, slug, details, status, created_by
+		) VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING
+			category_no, category_id, parent_no,
+			(SELECT category_id FROM catalog.categories WHERE category_no = $2),
+			category_name, slug, details, status,
+			created_at, created_by, updated_at, updated_by
+	`,
 		category.CategoryId,
-		category.ParentNo,
+		parentNo,
 		category.CategoryName,
 		category.Slug,
 		category.Details,
@@ -173,6 +163,7 @@ func (r *categoryRepository) Save(ctx context.Context, category *models.Category
 		&d.CategoryNo,
 		&d.CategoryId,
 		&d.ParentNo,
+		&d.ParentId,
 		&d.CategoryName,
 		&d.Slug,
 		&d.Details,
@@ -189,7 +180,6 @@ func (r *categoryRepository) Save(ctx context.Context, category *models.Category
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("categoryRepository.Save: commit: %w", err)
 	}
-
 	return &d, nil
 }
 
@@ -206,7 +196,7 @@ func (r *categoryRepository) Modify(ctx context.Context, Id uuid.UUID, req *mode
 
 	var lockedNo uint32
 	err = tx.QueryRow(ctx, `
-		SELECT category_no FROM product.categories
+		SELECT category_no FROM catalog.categories
 		WHERE category_id = $1 AND status != 'D'
 		FOR UPDATE
 	`, Id).Scan(&lockedNo)
@@ -217,9 +207,23 @@ func (r *categoryRepository) Modify(ctx context.Context, Id uuid.UUID, req *mode
 		return nil, fmt.Errorf("categoryRepository.Modify: lock row: %w", err)
 	}
 
-	query := `
-		UPDATE product.categories
-		SET
+	// Resolve parent_no from parent_id if provided
+	var parentNo *uint32
+	if req.ParentId != nil {
+		var pNo uint32
+		err = tx.QueryRow(ctx, `
+			SELECT category_no FROM catalog.categories
+			WHERE category_id = $1 AND status != 'D'
+		`, req.ParentId).Scan(&pNo)
+		if err != nil {
+			return nil, fmt.Errorf("categoryRepository.Modify: resolve parent: %w", err)
+		}
+		parentNo = &pNo
+	}
+
+	var d models.Category
+	err = tx.QueryRow(ctx, `
+		UPDATE catalog.categories SET
 			parent_no     = $1,
 			category_name = COALESCE(NULLIF($2, ''), category_name),
 			slug          = COALESCE(NULLIF($3, ''), slug),
@@ -228,23 +232,12 @@ func (r *categoryRepository) Modify(ctx context.Context, Id uuid.UUID, req *mode
 			updated_by    = $5
 		WHERE category_id = $6
 		RETURNING
-			category_no,
-			category_id,
-			parent_no,
-			category_name,
-			slug,
-			details,
-			status,
-			created_at,
-			created_by,
-			updated_at,
-			updated_by
-	`
-
-	var d models.Category
-
-	err = tx.QueryRow(ctx, query,
-		req.ParentNo,
+			category_no, category_id, parent_no,
+			(SELECT category_id FROM catalog.categories WHERE category_no = $1),
+			category_name, slug, details, status,
+			created_at, created_by, updated_at, updated_by
+	`,
+		parentNo,
 		req.CategoryName,
 		req.Slug,
 		req.Details,
@@ -254,6 +247,7 @@ func (r *categoryRepository) Modify(ctx context.Context, Id uuid.UUID, req *mode
 		&d.CategoryNo,
 		&d.CategoryId,
 		&d.ParentNo,
+		&d.ParentId,
 		&d.CategoryName,
 		&d.Slug,
 		&d.Details,
@@ -270,7 +264,6 @@ func (r *categoryRepository) Modify(ctx context.Context, Id uuid.UUID, req *mode
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("categoryRepository.Modify: commit: %w", err)
 	}
-
 	return &d, nil
 }
 
@@ -287,7 +280,7 @@ func (r *categoryRepository) Remove(ctx context.Context, Id uuid.UUID) error {
 
 	var lockedNo uint32
 	err = tx.QueryRow(ctx, `
-		SELECT category_no FROM product.categories
+		SELECT category_no FROM catalog.categories
 		WHERE category_id = $1 AND status != 'D'
 		FOR UPDATE
 	`, Id).Scan(&lockedNo)
@@ -299,7 +292,7 @@ func (r *categoryRepository) Remove(ctx context.Context, Id uuid.UUID) error {
 	}
 
 	_, err = tx.Exec(ctx, `
-		UPDATE product.categories
+		UPDATE catalog.categories
 		SET
 			status     = 'D',
 			updated_at = NOW()
