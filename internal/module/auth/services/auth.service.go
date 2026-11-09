@@ -374,6 +374,14 @@ func parseToken(tokenStr string) (jwt.MapClaims, error) {
 	return claims, nil
 }
 
+func (s *authService) GetMe(ctx context.Context, profileId uuid.UUID) (*models.User, error) {
+	user, err := s.userRepo.GetByProfileId(ctx, profileId)
+	if err != nil {
+		return nil, fmt.Errorf("authService.GetMe: %w", err)
+	}
+	return user, nil
+}
+
 func (s *authService) RefreshToken(ctx context.Context, req *models.RefreshTokenRequest) (*models.RefreshTokenResponse, error) {
 	claims, err := parseToken(req.RefreshToken)
 	if err != nil {

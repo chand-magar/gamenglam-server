@@ -3,6 +3,7 @@ package controllers
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -21,12 +22,31 @@ func NewOrderHandler(svc services.OrderService) *OrderHandler {
 
 // GET /api/v1/orders
 func (h *OrderHandler) FindAll(c *gin.Context) {
-	orders, err := h.svc.FindAll(c.Request.Context())
+	page, _  := strconv.Atoi(c.DefaultQuery("page",  "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	req := &models.OrderListRequest{
+		Page:   page,
+		Limit:  limit,
+		Status: c.Query("order_status"),
+		Search: c.Query("search"),
+	}
+
+	result, err := h.svc.FindAll(c.Request.Context(), req)
 	if err != nil {
 		ErrorResponse(c, http.StatusInternalServerError, "An internal server error occurred.")
 		return
 	}
-	SuccessResponse(c, orders, "Records retrieved successfully.")
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":     true,
+		"message":     "Records retrieved successfully.",
+		"data":        result.Orders,
+		"total":       result.Total,
+		"page":        result.Page,
+		"limit":       result.Limit,
+		"total_pages": result.TotalPages,
+	})
 }
 
 // POST /api/v1/orders

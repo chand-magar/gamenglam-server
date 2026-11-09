@@ -7,21 +7,38 @@ import (
 )
 
 type Order struct {
-	OrderNo     uint32      `json:"-"` // ← hide
-	OrderId     uuid.UUID   `json:"order_id"`
-	CustomerNo  uint32      `json:"-"` // ← hide
-	AddressNo   uint32      `json:"-"` // ← hide
-	OrderRef    string      `json:"order_ref"`
-	Subtotal    float64     `json:"subtotal"`
-	Discount    float64     `json:"discount"`
-	Tax         float64     `json:"tax"`
-	DeliveryFee float64     `json:"delivery_fee"`
-	Total       float64     `json:"total"`
-	OrderStatus OrderStatus `json:"order_status"`
-	Notes       *string     `json:"notes"`
-	CreatedAt   time.Time   `json:"created_at"`
-	UpdatedAt   time.Time   `json:"updated_at"`
-	Items       []OrderItem `json:"items"`
+	OrderNo      uint32      `json:"-"`
+	OrderId      uuid.UUID   `json:"order_id"`
+	CustomerNo   uint32      `json:"-"`
+	AddressNo    uint32      `json:"-"`
+	CustomerName string      `json:"customer_name,omitempty"`
+	ItemCount    int         `json:"item_count,omitempty"`
+	OrderRef     string      `json:"order_ref"`
+	Subtotal     float64     `json:"subtotal"`
+	Discount     float64     `json:"discount"`
+	Tax          float64     `json:"tax"`
+	DeliveryFee  float64     `json:"delivery_fee"`
+	Total        float64     `json:"total"`
+	OrderStatus  OrderStatus `json:"order_status"`
+	Notes        *string     `json:"notes"`
+	CreatedAt    time.Time   `json:"created_at"`
+	UpdatedAt    time.Time   `json:"updated_at"`
+	Items        []OrderItem `json:"items"`
+}
+
+type OrderListRequest struct {
+	Page   int
+	Limit  int
+	Status string
+	Search string
+}
+
+type OrderListResponse struct {
+	Orders     []Order `json:"orders"`
+	Total      int     `json:"total"`
+	Page       int     `json:"page"`
+	Limit      int     `json:"limit"`
+	TotalPages int     `json:"total_pages"`
 }
 
 type OrderStatusHistory struct {

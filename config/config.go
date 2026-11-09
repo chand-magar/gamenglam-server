@@ -21,12 +21,22 @@ type Database struct {
 	SSLMode  string `yaml:"ssl_mode" env:"DB_SSL_MODE" env-default:"disable"`
 }
 
+type SMTP struct {
+	Host      string `yaml:"host"       env:"SMTP_HOST"       env-default:"smtp.gmail.com"`
+	Port      int    `yaml:"port"       env:"SMTP_PORT"       env-default:"587"`
+	Username  string `yaml:"username"   env:"SMTP_USERNAME"`
+	Password  string `yaml:"password"   env:"SMTP_PASSWORD"`
+	FromName  string `yaml:"from_name"  env:"SMTP_FROM_NAME"  env-default:"Game n Glam"`
+	FromEmail string `yaml:"from_email" env:"SMTP_FROM_EMAIL"`
+}
+
 type Config struct {
 	Env        string     `yaml:"env"      env:"ENV"      env-default:"production"`
 	GinMode    string     `yaml:"gin_mode" env:"GIN_MODE" env-default:"release"`
 	BaseURL    string     `yaml:"base_url"   env:"BASE_URL"   env-default:"http://localhost:8080"`
 	HTTPServer HTTPServer `yaml:"http_server"`
 	Database   Database   `yaml:"database"`
+	SMTP       SMTP       `yaml:"smtp"`
 }
 
 func MustLoad() *Config {

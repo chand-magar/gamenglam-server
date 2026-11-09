@@ -19,6 +19,7 @@ type Module struct {
 	AttributeValueHandler        *controllers.AttributeValueHandler
 	VariantAttributeValueHandler *controllers.VariantAttributeValueHandler
 	VariantImageHandler          *controllers.VariantImageHandler
+	ReviewHandler                *controllers.ReviewHandler
 	productVariantService        services.ProductVariantService
 }
 
@@ -50,6 +51,10 @@ func NewModule(db *pgxpool.Pool, baseURL string) *Module {
 	variantImageRepo := postgres.NewVariantImageRepository(db)
 	variantImageHandler := controllers.NewVariantImageHandler(variantImageRepo, baseURL) // ← pass baseURL
 
+	reviewRepo := postgres.NewReviewRepository(db)
+	reviewService := services.NewReviewService(reviewRepo)
+	reviewHandler := controllers.NewReviewHandler(reviewService)
+
 	return &Module{
 		CategoryHandler:              categoryHandler,
 		ProductHandler:               productHandler,
@@ -58,6 +63,7 @@ func NewModule(db *pgxpool.Pool, baseURL string) *Module {
 		AttributeValueHandler:        attributeValueHandler,
 		VariantAttributeValueHandler: variantAttributeValueHandler,
 		VariantImageHandler:          variantImageHandler,
+		ReviewHandler:                reviewHandler,
 		productVariantService:        productVariantService,
 	}
 }
@@ -70,6 +76,7 @@ func (m *Module) RegisterRoutes(rg *gin.RouterGroup) {
 	routes.AttributeValueRoutes(rg, m.AttributeValueHandler)
 	routes.VariantAttributeValueRoutes(rg, m.VariantAttributeValueHandler)
 	routes.VariantImageRoutes(rg, m.VariantImageHandler)
+	routes.ReviewRoutes(rg, m.ReviewHandler)
 }
 
 func (m *Module) AsCatalogProvider() orderservices.CatalogProvider {

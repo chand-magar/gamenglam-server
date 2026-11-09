@@ -304,7 +304,11 @@ func (r *productRepository) Modify(ctx context.Context, Id uuid.UUID, req *model
 			(SELECT category_id FROM catalog.categories WHERE category_no = $1),
 			sku, product_name, slug, description, image_url,
 			features, specifications, status, is_featured,
-			created_at, created_by, updated_at, updated_by
+			created_at, created_by, updated_at, updated_by,
+			NULL::uuid,    -- default_variant_id
+			NULL::numeric, -- default_selling_price
+			NULL::numeric, -- default_mrp
+			NULL::integer  -- default_stock_qty
 	`,
 		categoryNo, // ← resolved
 		req.SKU,
@@ -369,22 +373,24 @@ func (r *productRepository) Remove(ctx context.Context, Id uuid.UUID) error {
 }
 
 func (r *productRepository) ModifyImage(ctx context.Context, Id uuid.UUID, imageURL string) (*models.Product, error) {
-	var d models.Product
-	err := scanProduct(r.db.QueryRow(ctx, `
-		UPDATE catalog.products p
+	_, err := r.db.Exec(ctx, `
+		UPDATE catalog.products
 		SET image_url = $1, updated_at = NOW()
-		WHERE p.product_id = $2
-		RETURNING
-			p.product_no,
-			p.product_id,
-			p.category_no,
-			(SELECT category_id FROM catalog.categories WHERE category_no = p.category_no),
-			p.sku, p.product_name, p.slug, p.description, p.base_price, p.image_url,
-			p.features, p.specifications, p.status, p.is_featured, p.stock_qty,
-			p.created_at, p.created_by, p.updated_at, p.updated_by
-	`, imageURL, Id), &d)
+		WHERE product_id = $2
+	`, imageURL, Id)
 	if err != nil {
-		return nil, fmt.Errorf("productRepository.ModifyImage: %w", err)
+		return nil, fmt.Errorf("productRepository.ModifyImage: update: %w", err)
+	}
+
+	var d models.Product
+	err = scanProduct(r.db.QueryRow(ctx, `
+		SELECT `+productSelect+`
+		FROM catalog.products p
+		JOIN catalog.categories c ON c.category_no = p.category_no
+		WHERE p.product_id = $1 AND p.status != 'D'
+	`, Id), &d)
+	if err != nil {
+		return nil, fmt.Errorf("productRepository.ModifyImage: fetch: %w", err)
 	}
 	return &d, nil
 }

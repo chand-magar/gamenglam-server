@@ -20,10 +20,18 @@ type CartRepository interface {
 }
 
 type OrderRepository interface {
-	GetAll(ctx context.Context) ([]models.Order, error) // ← ADD
+	GetAll(ctx context.Context, req *models.OrderListRequest) (*models.OrderListResponse, error)
 	Save(ctx context.Context, order *models.Order) (*models.Order, error)
-	GetByCustomerId(ctx context.Context, customerId uuid.UUID) ([]models.Order, error) // ← RENAME from GetAll
+	GetByCustomerId(ctx context.Context, customerId uuid.UUID) ([]models.Order, error)
 	GetById(ctx context.Context, orderId uuid.UUID) (*models.Order, error)
 	UpdateStatus(ctx context.Context, orderId uuid.UUID, req *models.UpdateOrderStatusRequest) (*models.Order, error)
 	GetStatusHistory(ctx context.Context, orderNo uint32) ([]models.OrderStatusHistory, error)
+}
+
+type CouponRepository interface {
+	GetAll(ctx context.Context, req *models.CouponListRequest) (*models.CouponListResponse, error)
+	GetById(ctx context.Context, couponId uuid.UUID) (*models.Coupon, error)
+	Save(ctx context.Context, req *models.CreateCouponRequest) (*models.Coupon, error)
+	Update(ctx context.Context, couponId uuid.UUID, req *models.UpdateCouponRequest) (*models.Coupon, error)
+	Delete(ctx context.Context, couponId uuid.UUID) error
 }

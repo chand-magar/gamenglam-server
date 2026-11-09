@@ -66,6 +66,13 @@ type VariantAttributeValueRepository interface {
 	Remove(ctx context.Context, Id uuid.UUID) error
 	GetAttributeValueNoById(ctx context.Context, attributeValueId uuid.UUID) (uint32, error)
 }
+type ReviewRepository interface {
+	GetByProductId(ctx context.Context, productId uuid.UUID) ([]models.Review, error)
+	GetAll(ctx context.Context, req *models.ReviewListRequest) (*models.ReviewListResponse, error)
+	Save(ctx context.Context, review *models.Review) (*models.Review, error)
+	Delete(ctx context.Context, reviewId uuid.UUID) error
+}
+
 type VariantImageRepository interface {
 	GetByVariantId(ctx context.Context, variantId uuid.UUID) ([]models.ProductVariantImage, error)
 	GetById(ctx context.Context, imageId uuid.UUID) (*models.ProductVariantImage, error)

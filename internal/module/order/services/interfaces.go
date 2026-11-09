@@ -45,10 +45,18 @@ type CartService interface {
 }
 
 type OrderService interface {
-	FindAll(ctx context.Context) ([]models.Order, error)
+	FindAll(ctx context.Context, req *models.OrderListRequest) (*models.OrderListResponse, error)
 	PlaceOrder(ctx context.Context, req *models.PlaceOrderRequest) (*models.Order, error)
 	GetOrders(ctx context.Context, customerId uuid.UUID) ([]models.Order, error)
 	GetOrder(ctx context.Context, orderId uuid.UUID) (*models.Order, error)
 	UpdateStatus(ctx context.Context, orderId uuid.UUID, req *models.UpdateOrderStatusRequest) (*models.Order, error)
 	GetStatusHistory(ctx context.Context, orderNo uint32) ([]models.OrderStatusHistory, error)
+}
+
+type CouponService interface {
+	FindAll(ctx context.Context, req *models.CouponListRequest) (*models.CouponListResponse, error)
+	FindById(ctx context.Context, couponId uuid.UUID) (*models.Coupon, error)
+	Create(ctx context.Context, req *models.CreateCouponRequest) (*models.Coupon, error)
+	Update(ctx context.Context, couponId uuid.UUID, req *models.UpdateCouponRequest) (*models.Coupon, error)
+	Delete(ctx context.Context, couponId uuid.UUID) error
 }

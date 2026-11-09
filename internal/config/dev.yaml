@@ -13,3 +13,11 @@ database:
   password: "F@tAfaT1!#2026"
   name: "gamenglam"
   ssl_mode: "disable"
+
+smtp:
+  host: "smtp.gmail.com"
+  port: 587
+  username: ""
+  password: ""
+  from_name: "Game n Glam"
+  from_email: ""

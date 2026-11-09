@@ -53,6 +53,13 @@ type AttributeValueService interface {
 	Update(ctx context.Context, Id uuid.UUID, req *models.UpdateAttributeValueRequest) (*models.AttributeValue, error)
 	Delete(ctx context.Context, Id uuid.UUID) error
 }
+type ReviewService interface {
+	GetByProductId(ctx context.Context, productId uuid.UUID) ([]models.Review, error)
+	FindAll(ctx context.Context, req *models.ReviewListRequest) (*models.ReviewListResponse, error)
+	Create(ctx context.Context, productId uuid.UUID, customerNo uint32, req *models.CreateReviewRequest) (*models.Review, error)
+	Delete(ctx context.Context, reviewId uuid.UUID) error
+}
+
 type VariantAttributeValueService interface {
 	FindAll(ctx context.Context) ([]models.VariantAttributeValue, error)
 	FindOne(ctx context.Context, Id uuid.UUID) (*models.VariantAttributeValue, error)

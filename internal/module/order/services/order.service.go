@@ -38,13 +38,13 @@ func NewOrderService(
 	}
 }
 
-func (s *orderService) FindAll(ctx context.Context) ([]models.Order, error) {
-	orders, err := s.repo.GetAll(ctx)
+func (s *orderService) FindAll(ctx context.Context, req *models.OrderListRequest) (*models.OrderListResponse, error) {
+	result, err := s.repo.GetAll(ctx, req)
 	if err != nil {
 		log.Printf("orderService.FindAll error: %v", err)
 		return nil, fmt.Errorf("orderService.FindAll: %w", err)
 	}
-	return orders, nil
+	return result, nil
 }
 
 func (s *orderService) PlaceOrder(ctx context.Context, req *models.PlaceOrderRequest) (*models.Order, error) {

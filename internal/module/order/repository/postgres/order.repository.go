@@ -22,18 +22,61 @@ func NewOrderRepository(db *pgxpool.Pool) repository.OrderRepository {
 	return &orderRepository{db: db}
 }
 
-func (r *orderRepository) GetAll(ctx context.Context) ([]models.Order, error) {
-	rows, err := r.db.Query(ctx, `
-		SELECT
-			order_no, order_id, customer_no, address_no,
-			order_ref, subtotal, discount, tax,
-			delivery_fee, total, order_status, notes,
-			created_at, updated_at
-		FROM orders.orders
-		ORDER BY created_at DESC
-	`)
+func (r *orderRepository) GetAll(ctx context.Context, req *models.OrderListRequest) (*models.OrderListResponse, error) {
+	if req.Limit <= 0 {
+		req.Limit = 10
+	}
+	if req.Page <= 0 {
+		req.Page = 1
+	}
+	offset := (req.Page - 1) * req.Limit
+
+	// Build dynamic WHERE clause
+	where := "WHERE 1=1"
+	args := []interface{}{}
+	n := 1
+
+	if req.Status != "" {
+		where += fmt.Sprintf(" AND o.order_status = $%d", n)
+		args = append(args, req.Status)
+		n++
+	}
+	if req.Search != "" {
+		where += fmt.Sprintf(" AND o.order_ref ILIKE $%d", n)
+		args = append(args, "%"+req.Search+"%")
+		n++
+	}
+
+	// Count query
+	var total int
+	countArgs := make([]interface{}, len(args))
+	copy(countArgs, args)
+	err := r.db.QueryRow(ctx,
+		fmt.Sprintf(`SELECT COUNT(*) FROM orders.orders o %s`, where),
+		countArgs...,
+	).Scan(&total)
 	if err != nil {
-		return nil, fmt.Errorf("orderRepository.GetAll: %w", err)
+		return nil, fmt.Errorf("orderRepository.GetAll: count: %w", err)
+	}
+
+	// Data query — JOIN customer for name + subquery for item count
+	args = append(args, req.Limit, offset)
+	rows, err := r.db.Query(ctx, fmt.Sprintf(`
+		SELECT
+			o.order_no, o.order_id, o.customer_no, o.address_no,
+			COALESCE(cu.first_name || ' ' || cu.last_name, '') AS customer_name,
+			o.order_ref, o.subtotal, o.discount, o.tax,
+			o.delivery_fee, o.total, o.order_status, o.notes,
+			o.created_at, o.updated_at,
+			(SELECT COUNT(*) FROM orders.order_items oi WHERE oi.order_no = o.order_no) AS item_count
+		FROM orders.orders o
+		LEFT JOIN customer.customers cu ON cu.customer_no = o.customer_no
+		%s
+		ORDER BY o.created_at DESC
+		LIMIT $%d OFFSET $%d
+	`, where, n, n+1), args...)
+	if err != nil {
+		return nil, fmt.Errorf("orderRepository.GetAll: query: %w", err)
 	}
 	defer rows.Close()
 
@@ -42,20 +85,29 @@ func (r *orderRepository) GetAll(ctx context.Context) ([]models.Order, error) {
 		var d models.Order
 		if err := rows.Scan(
 			&d.OrderNo, &d.OrderId, &d.CustomerNo, &d.AddressNo,
+			&d.CustomerName,
 			&d.OrderRef, &d.Subtotal, &d.Discount, &d.Tax,
 			&d.DeliveryFee, &d.Total, &d.OrderStatus, &d.Notes,
 			&d.CreatedAt, &d.UpdatedAt,
+			&d.ItemCount,
 		); err != nil {
 			return nil, fmt.Errorf("orderRepository.GetAll: scan: %w", err)
 		}
 		data = append(data, d)
 	}
-
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("orderRepository.GetAll: rows: %w", err)
 	}
 
-	return data, nil
+	totalPages := (total + req.Limit - 1) / req.Limit
+
+	return &models.OrderListResponse{
+		Orders:     data,
+		Total:      total,
+		Page:       req.Page,
+		Limit:      req.Limit,
+		TotalPages: totalPages,
+	}, nil
 }
 
 func scanOrder(row pgx.Row) (*models.Order, error) {
@@ -200,15 +252,26 @@ func (r *orderRepository) GetByCustomerId(ctx context.Context, customerId uuid.U
 }
 
 func (r *orderRepository) GetById(ctx context.Context, orderId uuid.UUID) (*models.Order, error) {
-	o, err := scanOrder(r.db.QueryRow(ctx, `
+	var o models.Order
+	err := r.db.QueryRow(ctx, `
 		SELECT
-			order_no, order_id, customer_no, address_no,
-			order_ref, subtotal, discount, tax,
-			delivery_fee, total, order_status, notes,
-			created_at, updated_at
-		FROM orders.orders
-		WHERE order_id = $1
-	`, orderId))
+			o.order_no, o.order_id, o.customer_no, o.address_no,
+			COALESCE(cu.first_name || ' ' || cu.last_name, '') AS customer_name,
+			o.order_ref, o.subtotal, o.discount, o.tax,
+			o.delivery_fee, o.total, o.order_status, o.notes,
+			o.created_at, o.updated_at,
+			(SELECT COUNT(*) FROM orders.order_items oi WHERE oi.order_no = o.order_no) AS item_count
+		FROM orders.orders o
+		LEFT JOIN customer.customers cu ON cu.customer_no = o.customer_no
+		WHERE o.order_id = $1
+	`, orderId).Scan(
+		&o.OrderNo, &o.OrderId, &o.CustomerNo, &o.AddressNo,
+		&o.CustomerName,
+		&o.OrderRef, &o.Subtotal, &o.Discount, &o.Tax,
+		&o.DeliveryFee, &o.Total, &o.OrderStatus, &o.Notes,
+		&o.CreatedAt, &o.UpdatedAt,
+		&o.ItemCount,
+	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
@@ -216,14 +279,20 @@ func (r *orderRepository) GetById(ctx context.Context, orderId uuid.UUID) (*mode
 		return nil, fmt.Errorf("orderRepository.GetById: %w", err)
 	}
 
-	// Fetch items
+	// Fetch items with primary variant image
 	rows, err := r.db.Query(ctx, `
 		SELECT
-			order_item_no, order_item_id, order_no, variant_no,
-			product_name, sku, attributes, quantity, unit_price, total_price, created_at
-		FROM orders.order_items
-		WHERE order_no = $1
-		ORDER BY created_at ASC
+			oi.order_item_no, oi.order_item_id, oi.order_no, oi.variant_no,
+			oi.product_name, oi.sku, oi.attributes,
+			oi.quantity, oi.unit_price, oi.total_price, oi.created_at,
+			(SELECT pvi.image_url
+			 FROM catalog.product_variant_images pvi
+			 WHERE pvi.variant_no = oi.variant_no
+			 ORDER BY pvi.is_primary DESC, pvi.sort_order ASC
+			 LIMIT 1) AS image_url
+		FROM orders.order_items oi
+		WHERE oi.order_no = $1
+		ORDER BY oi.created_at ASC
 	`, o.OrderNo)
 	if err != nil {
 		return nil, fmt.Errorf("orderRepository.GetById: fetch items: %w", err)
@@ -237,6 +306,7 @@ func (r *orderRepository) GetById(ctx context.Context, orderId uuid.UUID) (*mode
 			&item.OrderItemNo, &item.OrderItemId, &item.OrderNo, &item.VariantNo,
 			&item.ProductName, &item.SKU, &attributesRaw,
 			&item.Quantity, &item.UnitPrice, &item.TotalPrice, &item.CreatedAt,
+			&item.ImageUrl,
 		); err != nil {
 			return nil, fmt.Errorf("orderRepository.GetById: scan item: %w", err)
 		}
@@ -244,7 +314,7 @@ func (r *orderRepository) GetById(ctx context.Context, orderId uuid.UUID) (*mode
 		o.Items = append(o.Items, item)
 	}
 
-	return o, nil
+	return &o, nil
 }
 
 func (r *orderRepository) UpdateStatus(ctx context.Context, orderId uuid.UUID, req *models.UpdateOrderStatusRequest) (*models.Order, error) {
@@ -258,7 +328,7 @@ func (r *orderRepository) UpdateStatus(ctx context.Context, orderId uuid.UUID, r
 		}
 	}()
 
-	// Lock row
+	// Lock row and capture current status + order_no for history
 	var currentStatus models.OrderStatus
 	var orderNo uint32
 	err = tx.QueryRow(ctx, `
@@ -273,22 +343,34 @@ func (r *orderRepository) UpdateStatus(ctx context.Context, orderId uuid.UUID, r
 		return nil, fmt.Errorf("orderRepository.UpdateStatus: lock row: %w", err)
 	}
 
-	// Update status
+	// Update + return enriched row via CTE (includes customer name + item count)
 	var o models.Order
 	err = tx.QueryRow(ctx, `
-		UPDATE orders.orders
-		SET order_status = $1, updated_at = NOW()
-		WHERE order_id = $2
-		RETURNING
-			order_no, order_id, customer_no, address_no,
-			order_ref, subtotal, discount, tax,
-			delivery_fee, total, order_status, notes,
-			created_at, updated_at
+		WITH updated AS (
+			UPDATE orders.orders
+			SET order_status = $1, updated_at = NOW()
+			WHERE order_id = $2
+			RETURNING order_no, order_id, customer_no, address_no,
+			          order_ref, subtotal, discount, tax,
+			          delivery_fee, total, order_status, notes,
+			          created_at, updated_at
+		)
+		SELECT
+			u.order_no, u.order_id, u.customer_no, u.address_no,
+			COALESCE(cu.first_name || ' ' || cu.last_name, '') AS customer_name,
+			u.order_ref, u.subtotal, u.discount, u.tax,
+			u.delivery_fee, u.total, u.order_status, u.notes,
+			u.created_at, u.updated_at,
+			(SELECT COUNT(*) FROM orders.order_items oi WHERE oi.order_no = u.order_no) AS item_count
+		FROM updated u
+		LEFT JOIN customer.customers cu ON cu.customer_no = u.customer_no
 	`, req.ToStatus, orderId).Scan(
 		&o.OrderNo, &o.OrderId, &o.CustomerNo, &o.AddressNo,
+		&o.CustomerName,
 		&o.OrderRef, &o.Subtotal, &o.Discount, &o.Tax,
 		&o.DeliveryFee, &o.Total, &o.OrderStatus, &o.Notes,
 		&o.CreatedAt, &o.UpdatedAt,
+		&o.ItemCount,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("orderRepository.UpdateStatus: update: %w", err)

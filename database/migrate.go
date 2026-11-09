@@ -647,6 +647,31 @@ func createTables(ctx context.Context, db *pgxpool.Pool) error {
 			`,
 		},
 
+		{
+			name: "orders.coupons",
+			query: `
+				CREATE TABLE IF NOT EXISTS orders.coupons (
+					coupon_no        SERIAL           PRIMARY KEY,
+					coupon_id        UUID             NOT NULL DEFAULT gen_random_uuid(),
+					code             VARCHAR(50)      NOT NULL,
+					description      TEXT                      DEFAULT NULL,
+					discount_type    VARCHAR(20)      NOT NULL DEFAULT 'percentage',
+					discount_value   NUMERIC(10,2)    NOT NULL,
+					min_order_amount NUMERIC(10,2)    NOT NULL DEFAULT 0,
+					max_uses         INTEGER                   DEFAULT NULL,
+					used_count       INTEGER          NOT NULL DEFAULT 0,
+					valid_from       TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+					valid_until      TIMESTAMPTZ               DEFAULT NULL,
+					status           auth.status_enum NOT NULL DEFAULT 'A',
+					created_at       TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+					updated_at       TIMESTAMPTZ      NOT NULL DEFAULT NOW()
+				);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_coupons_coupon_id ON orders.coupons(coupon_id);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_coupons_code      ON orders.coupons(UPPER(code));
+				CREATE        INDEX IF NOT EXISTS idx_coupons_status    ON orders.coupons(status);
+			`,
+		},
+
 		// ── payment schema ────────────────────────────────────────────────────
 		{
 			name: "payment.payments",
@@ -780,6 +805,72 @@ func createTables(ctx context.Context, db *pgxpool.Pool) error {
 				CREATE        INDEX IF NOT EXISTS idx_notifications_customer_no ON notification.notifications(customer_no);
 				CREATE        INDEX IF NOT EXISTS idx_notifications_status      ON notification.notifications(sent_status);
 				CREATE        INDEX IF NOT EXISTS idx_notifications_created_at  ON notification.notifications(created_at);
+			`,
+		},
+
+		// ── notification.newsletter_subscribers ──────────────────────────────────
+		{
+			name: "notification.newsletter_subscribers",
+			query: `
+				CREATE TABLE IF NOT EXISTS notification.newsletter_subscribers (
+					subscriber_no  SERIAL           PRIMARY KEY,
+					subscriber_id  UUID             NOT NULL DEFAULT gen_random_uuid(),
+					email          VARCHAR(255)     NOT NULL,
+					name           VARCHAR(255)              DEFAULT NULL,
+					status         auth.status_enum NOT NULL DEFAULT 'A',
+					subscribed_at  TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+					created_at     TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+					updated_at     TIMESTAMPTZ      NOT NULL DEFAULT NOW()
+				);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_newsletter_subscriber_id ON notification.newsletter_subscribers(subscriber_id);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_newsletter_email         ON notification.newsletter_subscribers(email);
+				CREATE        INDEX IF NOT EXISTS idx_newsletter_status        ON notification.newsletter_subscribers(status);
+			`,
+		},
+
+		// ── notification.newsletter_campaigns ────────────────────────────────────
+		{
+			name: "notification.newsletter_campaigns",
+			query: `
+				CREATE TABLE IF NOT EXISTS notification.newsletter_campaigns (
+					campaign_no      SERIAL       PRIMARY KEY,
+					campaign_id      UUID         NOT NULL DEFAULT gen_random_uuid(),
+					subject          VARCHAR(500) NOT NULL,
+					body             TEXT         NOT NULL,
+					sent_status      VARCHAR(20)  NOT NULL DEFAULT 'draft',
+					recipient_count  INTEGER      NOT NULL DEFAULT 0,
+					sent_at          TIMESTAMPTZ           DEFAULT NULL,
+					error_message    TEXT                  DEFAULT NULL,
+					created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+					updated_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+				);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_newsletter_campaign_id     ON notification.newsletter_campaigns(campaign_id);
+				CREATE        INDEX IF NOT EXISTS idx_newsletter_campaign_status ON notification.newsletter_campaigns(sent_status);
+				CREATE        INDEX IF NOT EXISTS idx_newsletter_campaign_sent   ON notification.newsletter_campaigns(sent_at);
+			`,
+		},
+
+		// ── catalog.product_reviews ──────────────────────────────────────────────
+		{
+			name: "catalog.product_reviews",
+			query: `
+				CREATE TABLE IF NOT EXISTS catalog.product_reviews (
+					review_no   SERIAL           PRIMARY KEY,
+					review_id   UUID             NOT NULL DEFAULT gen_random_uuid(),
+					product_no  INTEGER          NOT NULL,
+					customer_no INTEGER          NOT NULL,
+					rating      SMALLINT         NOT NULL CHECK (rating BETWEEN 1 AND 5),
+					title       VARCHAR(255)               DEFAULT NULL,
+					body        TEXT             NOT NULL,
+					status      auth.status_enum NOT NULL DEFAULT 'A',
+					created_at  TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+					updated_at  TIMESTAMPTZ      NOT NULL DEFAULT NOW()
+				);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_product_reviews_review_id   ON catalog.product_reviews(review_id);
+				CREATE        INDEX IF NOT EXISTS idx_product_reviews_product_no  ON catalog.product_reviews(product_no);
+				CREATE        INDEX IF NOT EXISTS idx_product_reviews_customer_no ON catalog.product_reviews(customer_no);
+				CREATE        INDEX IF NOT EXISTS idx_product_reviews_status      ON catalog.product_reviews(status);
+				CREATE        INDEX IF NOT EXISTS idx_product_reviews_created_at  ON catalog.product_reviews(created_at);
 			`,
 		},
 
@@ -1309,6 +1400,40 @@ func addForeignKeys(ctx context.Context, db *pgxpool.Pool) error {
 						ADD CONSTRAINT fk_notifications_customer_no
 						FOREIGN KEY (customer_no) REFERENCES customer.customers(customer_no)
 						ON DELETE SET NULL;
+					END IF;
+				END $$;
+			`,
+		},
+
+		// ── catalog.product_reviews FKs ──────────────────────────────────────────
+		{
+			name: "fk_product_reviews_product_no",
+			query: `
+				DO $$ BEGIN
+					IF NOT EXISTS (
+						SELECT 1 FROM information_schema.table_constraints
+						WHERE constraint_name = 'fk_product_reviews_product_no'
+					) THEN
+						ALTER TABLE catalog.product_reviews
+						ADD CONSTRAINT fk_product_reviews_product_no
+						FOREIGN KEY (product_no) REFERENCES catalog.products(product_no)
+						ON DELETE CASCADE;
+					END IF;
+				END $$;
+			`,
+		},
+		{
+			name: "fk_product_reviews_customer_no",
+			query: `
+				DO $$ BEGIN
+					IF NOT EXISTS (
+						SELECT 1 FROM information_schema.table_constraints
+						WHERE constraint_name = 'fk_product_reviews_customer_no'
+					) THEN
+						ALTER TABLE catalog.product_reviews
+						ADD CONSTRAINT fk_product_reviews_customer_no
+						FOREIGN KEY (customer_no) REFERENCES customer.customers(customer_no)
+						ON DELETE CASCADE;
 					END IF;
 				END $$;
 			`,

@@ -550,6 +550,10 @@ func (r *productVariantRepository) GetListing(ctx context.Context, categoryId *u
 					SELECT p2.product_no FROM catalog.products p2
 					JOIN catalog.categories c2 ON c2.category_no = p2.category_no
 					WHERE c2.category_id = $2
+					   OR c2.parent_no IN (
+					       SELECT category_no FROM catalog.categories
+					       WHERE category_id = $2 AND status != 'D'
+					   )
 				)`
 			args = append(args, *categoryId)
 		}
@@ -561,6 +565,10 @@ func (r *productVariantRepository) GetListing(ctx context.Context, categoryId *u
 					SELECT p2.product_no FROM catalog.products p2
 					JOIN catalog.categories c2 ON c2.category_no = p2.category_no
 					WHERE c2.category_id = $1
+					   OR c2.parent_no IN (
+					       SELECT category_no FROM catalog.categories
+					       WHERE category_id = $1 AND status != 'D'
+					   )
 				)`
 			args = append(args, *categoryId)
 		}

@@ -55,7 +55,7 @@ func main() {
 
 	engine.MaxMultipartMemory = 32 << 20 // 32MB
 
-	routes.SetupRouter(engine, db, cfg.BaseURL)
+	routes.SetupRouter(engine, db, cfg.BaseURL, cfg)
 
 	engine.Static("/uploads", "./uploads")
 

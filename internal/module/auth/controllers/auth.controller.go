@@ -172,6 +172,26 @@ func extractProfileIdFromToken(c *gin.Context) (uuid.UUID, error) {
 	return uuid.Parse(profileIdStr)
 }
 
+func (h *AuthHandler) Me(c *gin.Context) {
+	profileId, err := extractProfileIdFromToken(c)
+	if err != nil {
+		ErrorResponse(c, http.StatusUnauthorized, "Unauthorized.")
+		return
+	}
+
+	user, err := h.svc.GetMe(c.Request.Context(), profileId)
+	if err != nil {
+		ErrorResponse(c, http.StatusInternalServerError, "An internal server error occurred.")
+		return
+	}
+	if user == nil {
+		ErrorResponse(c, http.StatusNotFound, "User not found.")
+		return
+	}
+
+	SuccessResponse(c, user, "Profile retrieved successfully.")
+}
+
 func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	var req models.RefreshTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
